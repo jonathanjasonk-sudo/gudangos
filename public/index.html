@@ -216,7 +216,8 @@ function activeReturan(item){ return item.returan.filter(r=>r.status==='pending'
 function perm(){
   const r = state.role;
   return {
-    canAddItem: r==='PPIC',
+    canAddItem: r==='PPIC' || r==='WH',
+    canDeleteItem: r==='PPIC',
     canEditPlanning: r==='PPIC',
     canEditWhReady: r==='PPIC'||r==='WH',
     canEditPengambilan: r==='PPIC'||r==='SF',
@@ -473,7 +474,7 @@ function renderItemDetail(it,p,ws,ps){
       </div>` : `<div class="locked">Hanya PPIC/WH/SF</div>`}
     </div>
   </div>
-  ${p.canAddItem ? `
+  ${p.canDeleteItem ? `
   <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--line);display:flex;justify-content:flex-end;">
     <button class="btn sm danger" data-del-item="${it.id}">Hapus SPK Ini</button>
   </div>` : ''}`;

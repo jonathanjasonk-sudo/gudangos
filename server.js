@@ -97,6 +97,7 @@ function authMiddleware(req, res, next) {
 }
 const PERMS = {
   planning: ['PPIC'],
+  addItem: ['PPIC', 'WH'],
   whReady: ['PPIC', 'WH'],
   pengambilan: ['PPIC', 'SF'],
   returanAdd: ['PPIC', 'WH', 'SF'],
@@ -156,7 +157,7 @@ app.get('/api/items', async (req, res) => {
   }
 });
 
-app.post('/api/items', requirePerm('planning'), async (req, res) => {
+app.post('/api/items', requirePerm('addItem'), async (req, res) => {
   const { spk, xfd, qty } = req.body || {};
   if (!spk || !xfd || !qty || qty <= 0) return res.status(400).json({ error: 'SPK, XFD, dan QTY wajib diisi.' });
   const id = crypto.randomUUID();
@@ -167,7 +168,7 @@ app.post('/api/items', requirePerm('planning'), async (req, res) => {
   res.json(await getFullItems());
 });
 
-app.post('/api/items/bulk', requirePerm('planning'), async (req, res) => {
+app.post('/api/items/bulk', requirePerm('addItem'), async (req, res) => {
   try {
     const { items } = req.body || {};
     if (!Array.isArray(items) || items.length === 0) return res.status(400).json({ error: 'Array items wajib diisi.' });
