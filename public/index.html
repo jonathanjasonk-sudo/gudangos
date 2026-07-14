@@ -566,9 +566,7 @@ function renderKanbanCard(it, stage){
   } else if(stage==='pengambilan'){
     prog = mp('IP',pengIPqty,it.qty,'ip') + mp('RB/TPU',pengRBqty,it.qty,'rb');
   } else if(stage==='retur'){
-    const nG=ar.filter(r=>r.type!=='closing').length;
-    const nC=ar.filter(r=>r.type==='closing').length;
-    prog=`<div style="font-size:11px;margin-top:4px;display:flex;gap:4px;flex-wrap:wrap;">${nG>0?`<span style="background:#FEF3DE;color:var(--amber-d);padding:1px 6px;border-radius:4px;">Retur Gudang: ${nG}</span>`:''} ${nC>0?`<span style="background:var(--red-bg);color:var(--red-d);padding:1px 6px;border-radius:4px;">Closingan: ${nC}</span>`:''}</div>`;
+    prog=`<div style="font-size:11px;margin-top:4px;display:flex;gap:4px;flex-wrap:wrap;">${ar.length>0?`<span style="background:#FEF3DE;color:var(--amber-d);padding:1px 8px;border-radius:4px;font-weight:600;">Retur Gudang: ${ar.length}</span>`:''}</div>`;
   }
   return `<div class="kcard" data-goto="${it.id}">
     <div class="kcard-spk">${esc(it.spk)}</div>

@@ -227,10 +227,18 @@ app.post('/api/items/:id/returan', requirePerm('returanAdd'), async (req, res) =
   if (!qty || qty <= 0) return res.status(400).json({ error: 'Qty wajib diisi.' });
   const validType = type === 'closing' ? 'closing' : 'gudang';
   const id = crypto.randomUUID();
-  await pool.query(
-    'INSERT INTO returan (id, item_id, qty, reason, date, by_role, type) VALUES ($1,$2,$3,$4,CURRENT_DATE,$5,$6)',
-    [id, req.params.id, qty, reason || '', req.role, validType]
-  );
+  if (validType === 'closing') {
+    // Closingan = auto-confirmed — indicates material has been replaced
+    await pool.query(
+      "INSERT INTO returan (id, item_id, qty, reason, date, by_role, type, status, confirmed_by, confirmed_date) VALUES ($1,$2,$3,$4,CURRENT_DATE,$5,$6,'confirmed',$7,CURRENT_DATE)",
+      [id, req.params.id, qty, reason || '', req.role, 'closing', req.role]
+    );
+  } else {
+    await pool.query(
+      'INSERT INTO returan (id, item_id, qty, reason, date, by_role, type) VALUES ($1,$2,$3,$4,CURRENT_DATE,$5,$6)',
+      [id, req.params.id, qty, reason || '', req.role, 'gudang']
+    );
+  }
   res.json(await getFullItems());
 });
 
