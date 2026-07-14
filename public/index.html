@@ -180,6 +180,10 @@
   .hist-mat.ip{background:#EEF2FF;color:#3730A3;}
   .hist-mat.rb{background:#FFF7ED;color:#9A3412;}
   .hist-notes{font-size:11px;color:var(--text2);font-style:italic;}
+  .xfd-ok{color:#2563EB;}
+  .xfd-warn{color:var(--amber-d);font-weight:600;}
+  .xfd-urgent{color:var(--red);font-weight:600;}
+  .xfd-overdue{color:var(--red-d);font-weight:700;}
   .planning-done-tag{background:var(--green-bg);color:var(--green-d);border-radius:6px;padding:4px 10px;font-size:12.5px;font-weight:600;display:inline-block;margin-top:6px;}
 </style>
 </head>
@@ -251,6 +255,14 @@ function matSum(history, mat){
   return history.filter(h=>h.material===mat).reduce((a,h)=>a+Number(h.qty),0);
 }
 function activeReturan(item){ return item.returan.filter(r=>r.status==='pending'); }
+function xfdStatus(xfdDate, isDone){
+  if(isDone) return {cls:'', icon:''};
+  const days = dayjs(xfdDate).diff(dayjs(),'day');
+  if(days < 0) return {cls:'xfd-overdue', icon:' ⚠'};
+  if(days < 7) return {cls:'xfd-urgent', icon:' ⚠'};
+  if(days <= 14) return {cls:'xfd-warn', icon:''};
+  return {cls:'xfd-ok', icon:''};
+}
 
 function perm(){
   const r = state.role;
@@ -447,7 +459,7 @@ function renderKanbanCard(it, stage){
   const pengIPqty = matSum(it.pengambilan.history,'IP');
   const pengRBqty = matSum(it.pengambilan.history,'RB_TPU');
   const ps = stageStatus(it.pengambilan, it.qty);
-  const isOv = dayjs(it.xfd).isBefore(dayjs(),'day') && ps!=='ok';
+  const xfd = xfdStatus(it.xfd, ps==='ok');
   const ar = activeReturan(it);
   function mp(label,qty,total,cls){
     const pct=Math.min(100,total>0?qty/total*100:0);
@@ -465,7 +477,7 @@ function renderKanbanCard(it, stage){
   }
   return `<div class="kcard" data-goto="${it.id}">
     <div class="kcard-spk">${esc(it.spk)}</div>
-    <div class="kcard-xfd ${isOv?'ov':''}">XFD ${fmtDate(it.xfd)}${isOv?' ⚠':''}</div>
+    <div class="kcard-xfd ${xfd.cls}">XFD ${fmtDate(it.xfd)}${xfd.icon}</div>
     <div class="kcard-qty">QTY ${it.qty}</div>
     ${prog}${ar.length>0?`<div class="kcard-ret">⚠ ${ar.length} Retur Aktif</div>`:''}
   </div>`;
@@ -476,13 +488,13 @@ function renderItemCard(it, p){
   const ps = stageStatus(it.pengambilan, it.qty);
   const ar = activeReturan(it);
   const isOpen = state.expanded === it.id;
-  const overdue = dayjs(it.xfd).isBefore(dayjs(),'day') && ps!=='ok';
+  const xfd = xfdStatus(it.xfd, ps==='ok');
   return `
   <div class="item-card">
     <div class="item-head" data-toggle="${it.id}">
       <div>
         <div class="spk">${esc(it.spk)}</div>
-        <div class="meta ${overdue?'overdue':''}">XFD ${fmtDate(it.xfd)}${overdue?' · terlewat':''} · QTY ${it.qty}</div>
+        <div class="meta ${xfd.cls}">XFD ${fmtDate(it.xfd)}${xfd.cls==='xfd-overdue'?' · terlewat':xfd.icon} · QTY ${it.qty}</div>
       </div>
       <div style="display:flex;align-items:center;gap:8px;">
         <div class="stages-mini">
@@ -703,6 +715,12 @@ function attachEvents(){
     const notesEl = document.getElementById('wh-notes-'+id);
     const notes = notesEl ? notesEl.value.trim() : '';
     if(!qty||qty<=0){ showToast('Isi qty.'); return; }
+    const item = state.items.find(it=>it.id===id);
+    if(item){
+      const already = matSum(item.whReady.history, material);
+      const remaining = item.qty - already;
+      if(qty > remaining){ showToast(`Qty melebihi sisa ${material}: ${remaining}`); return; }
+    }
     try{
       state.items = await api(`/items/${id}/wh-ready`, {method:'POST', body: JSON.stringify({qty, date, pic, material, notes})});
       render();
@@ -721,6 +739,12 @@ function attachEvents(){
     const notesEl = document.getElementById('peng-notes-'+id);
     const notes = notesEl ? notesEl.value.trim() : '';
     if(!qty||qty<=0){ showToast('Isi qty.'); return; }
+    const item = state.items.find(it=>it.id===id);
+    if(item){
+      const already = matSum(item.pengambilan.history, material);
+      const remaining = item.qty - already;
+      if(qty > remaining){ showToast(`Qty melebihi sisa ${material}: ${remaining}`); return; }
+    }
     try{
       state.items = await api(`/items/${id}/pengambilan`, {method:'POST', body: JSON.stringify({qty, date, pic, material, notes})});
       render();
