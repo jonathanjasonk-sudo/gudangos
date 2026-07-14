@@ -106,11 +106,15 @@
   .kanban{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;align-items:start;}
   @media(max-width:900px){.kanban{grid-template-columns:repeat(2,1fr);}}
   @media(max-width:500px){.kanban{grid-template-columns:1fr;}}
-  .kcol{background:#EDEDEF;border-radius:12px;padding:10px;}
+  .kcol{background:#EDEDEF;border-radius:12px;padding:10px;border-top:3px solid #C5C7CC;}
   .kcol-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
   .kcol-title{font-family:'Barlow Condensed';font-size:13px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.04em;}
   .kcol-zh{font-family:'Inter';font-weight:400;color:var(--text2);font-size:11px;display:block;margin-top:1px;}
   .kcol-badge{border-radius:10px;padding:2px 8px;font-size:12px;font-weight:700;}
+  .col-antrian{border-top-color:#64748B;}
+  .col-whparsial{border-top-color:var(--amber);}
+  .col-whok{border-top-color:#2563EB;}
+  .col-selesai{border-top-color:var(--red);}
   .col-antrian .kcol-badge{background:var(--navy);color:#fff;}
   .col-whparsial .kcol-badge{background:#FEF3DE;color:var(--amber-d);}
   .col-whok .kcol-badge{background:#DBEAFE;color:#1E40AF;}
@@ -149,7 +153,18 @@
   .bulk-table select{width:100%;padding:6px 8px;border:1px solid var(--line);border-radius:6px;font-size:13px;}
   .del-spk-btn{background:none;border:1px solid var(--line);color:var(--text2);cursor:pointer;padding:4px 8px;border-radius:6px;font-size:13px;line-height:1;white-space:nowrap;flex-shrink:0;}
   .del-spk-btn:hover{background:var(--red-bg);border-color:var(--red);color:var(--red);}
-  /* Planning done tag */
+  /* Dashboard search + selesai */
+  .dash-searchbar{margin-bottom:16px;}
+  .dash-searchbar input{width:100%;max-width:420px;padding:10px 14px;border:1.5px solid var(--line);border-radius:10px;font-size:14px;outline:none;transition:.15s;}
+  .dash-searchbar input:focus{border-color:var(--amber);box-shadow:0 0 0 3px rgba(245,166,35,.12);}
+  .selesai-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(172px,1fr));gap:8px;}
+  .selesai-card{background:#fff;border:1px solid var(--line);border-radius:9px;padding:10px 12px;cursor:pointer;transition:.12s;}
+  .selesai-card:hover{border-color:var(--green);box-shadow:0 2px 8px rgba(0,0,0,.07);}
+  .selesai-spk{font-family:'Barlow Condensed';font-size:16px;font-weight:700;color:var(--navy);}
+  .selesai-meta{font-size:11px;color:var(--text2);margin:2px 0 5px;}
+  .selesai-checks{display:flex;gap:5px;flex-wrap:wrap;}
+  .selesai-ok{font-size:11px;background:var(--green-bg);color:var(--green-d);padding:2px 6px;border-radius:4px;font-weight:600;}
+  .selesai-who{font-size:11px;color:var(--text2);margin-top:3px;}
   .planning-done-tag{background:var(--green-bg);color:var(--green-d);border-radius:6px;padding:4px 10px;font-size:12.5px;font-weight:600;display:inline-block;margin-top:6px;}
 </style>
 </head>
@@ -171,6 +186,7 @@ let state = {
   tab: 'dashboard',
   expanded: null,
   search: '',
+  dashSearch: '',
   loginRoleSel: null,
   loginErr: '',
   addOpen: false,
@@ -281,34 +297,65 @@ function renderMain(){
 
 function renderDashboard(){
   const items = state.items;
+  const q = (state.dashSearch||'').toLowerCase().trim();
+  const filtered = q ? items.filter(it=>it.spk.toLowerCase().includes(q)) : items;
   const total = items.length;
-  const planning=[], gudang=[], pengambilan=[], retur=[];
   let retActive=0, overdueCount=0;
   items.forEach(it=>{
+    retActive += activeReturan(it).length;
+    if(dayjs(it.xfd).isBefore(dayjs(),'day') && stageStatus(it.pengambilan,it.qty)!=='ok') overdueCount++;
+  });
+  const planning=[], gudang=[], pengambilan=[], retur=[], selesai=[];
+  filtered.forEach(it=>{
     const ws = stageStatus(it.whReady, it.qty);
     const ps = stageStatus(it.pengambilan, it.qty);
     const ar = activeReturan(it);
-    retActive += ar.length;
-    if(dayjs(it.xfd).isBefore(dayjs(),'day') && ps!=='ok') overdueCount++;
     if(ar.length>0) retur.push(it);
-    else if(ps!=='pending') pengambilan.push(it);
-    else if(ws!=='pending') gudang.push(it);
-    else planning.push(it);
+    else if(ps==='ok') selesai.push(it);
+    else if(ws==='pending' && ps==='pending') planning.push(it);
+    else {
+      if(ws!=='pending') gudang.push(it);
+      if(ps!=='pending') pengambilan.push(it);
+    }
   });
-  if(total===0) return '<div class="empty">Belum ada data SPK. Tambahkan lewat tab "Data SPK" (perlu login PPIC).</div>';
+  if(total===0) return '<div class="empty">Belum ada data SPK. Tambahkan lewat tab "Data SPK".</div>';
   return `
+  <div class="dash-searchbar">
+    <input type="text" id="dashSearch" placeholder="🔍 Cari SPK di dashboard..." value="${esc(q)}" autocomplete="off" />
+  </div>
   <div class="summary-cards">
     <div class="scard"><div class="num">${total}</div><div class="lbl">Total SPK</div></div>
-    <div class="scard ${planning.length>0?'':'good'}"><div class="num">${planning.length}</div><div class="lbl">Planning<br>Belum Gudang</div></div>
+    <div class="scard"><div class="num" style="color:var(--green);">${selesai.length}</div><div class="lbl">Selesai \u2713<br>領料 OK</div></div>
     <div class="scard ${retActive>0?'warn':''}"><div class="num">${retActive}</div><div class="lbl">Retur 退料<br>Aktif</div></div>
-    <div class="scard ${overdueCount>0?'warn':''}"><div class="num">${overdueCount}</div><div class="lbl">XFD Lewat<br>Belum Selesai</div></div>
+    <div class="scard ${overdueCount>0?'warn':''}"><div class="num">${overdueCount}</div><div class="lbl">XFD Lewat<br>Belum OK</div></div>
   </div>
-  <div class="pipeline-title">Pipeline SPK</div>
+  <div class="pipeline-title">Pipeline Aktif${q?` \u2014 "${esc(q)}"`:''}</div>
   <div class="kanban">
     ${renderKanbanCol('col-antrian','Planning','計劃',planning,'planning')}
     ${renderKanbanCol('col-whparsial','Gudang','備料',gudang,'gudang')}
     ${renderKanbanCol('col-whok','Pengambilan','領料',pengambilan,'pengambilan')}
     ${renderKanbanCol('col-selesai','Retur','退料',retur,'retur')}
+  </div>
+  ${selesai.length>0?`
+  <div class="pipeline-title" style="margin-top:24px;border-left-color:var(--green);">Selesai / History (${selesai.length})</div>
+  <div class="selesai-grid">
+    ${selesai.map(it=>renderSelesaiCard(it)).join('')}
+  </div>`:''}
+  `;
+}
+
+function renderSelesaiCard(it){
+  const whSum = stageSum(it.whReady);
+  const pengSum = stageSum(it.pengambilan);
+  const lastPeng = it.pengambilan.history.slice(-1)[0];
+  return `<div class="selesai-card" data-goto="${it.id}">
+    <div class="selesai-spk">${esc(it.spk)}</div>
+    <div class="selesai-meta">XFD ${fmtDate(it.xfd)} · QTY ${it.qty}</div>
+    <div class="selesai-checks">
+      <span class="selesai-ok">備料 ✓ ${whSum}</span>
+      <span class="selesai-ok">領料 ✓ ${pengSum}</span>
+    </div>
+    <div class="selesai-who">${lastPeng?`${esc(lastPeng.pic||lastPeng.by)} · ${fmtDate(lastPeng.date)}`:''}</div>
   </div>`;
 }
 
@@ -441,12 +488,13 @@ function renderItemDetail(it,p,ws,ps){
       <h4>WH Ready <span class="zh">備料</span></h4>
       <div class="progress-track"><div class="progress-fill ${ws==='partial'?'partial':''}" style="width:${Math.min(100,whSum/it.qty*100)}%"></div></div>
       <div style="font-size:12px;color:var(--text2);">${whSum} / ${it.qty}</div>
-      ${it.whReady.history.map(h=>`<div class="hist-row"><span>${fmtDate(h.date)} · ${esc(h.by)}</span><span>+${h.qty}</span></div>`).join('')}
+      ${it.whReady.history.map(h=>`<div class="hist-row"><span>${fmtDate(h.date)} · ${esc(h.pic||h.by)}</span><span>+${h.qty}</span></div>`).join('')}
       ${p.canEditWhReady && ws!=='ok' ? `
       <div class="inline-form">
         <input type="number" min="1" placeholder="qty" id="wh-qty-${it.id}" />
         <input type="date" value="${todayStr()}" id="wh-date-${it.id}" />
-        <button class="btn sm" data-add-wh="${it.id}">Tambah</button>
+        <input type="text" placeholder="PIC" id="wh-pic-${it.id}" />
+        <button class="btn sm" data-add-wh="${it.id}">+</button>
       </div>` : (!p.canEditWhReady ? `<div class="locked">Hanya PPIC/WH</div>` : '')}
     </div>
 
@@ -454,12 +502,13 @@ function renderItemDetail(it,p,ws,ps){
       <h4>Pengambilan <span class="zh">領料</span></h4>
       <div class="progress-track"><div class="progress-fill ${ps==='partial'?'partial':''}" style="width:${Math.min(100,pengSum/it.qty*100)}%"></div></div>
       <div style="font-size:12px;color:var(--text2);">${pengSum} / ${it.qty}</div>
-      ${it.pengambilan.history.map(h=>`<div class="hist-row"><span>${fmtDate(h.date)} · ${esc(h.by)}</span><span>+${h.qty}</span></div>`).join('')}
+      ${it.pengambilan.history.map(h=>`<div class="hist-row"><span>${fmtDate(h.date)} · ${esc(h.pic||h.by)}</span><span>+${h.qty}</span></div>`).join('')}
       ${p.canEditPengambilan && ps!=='ok' ? `
       <div class="inline-form">
         <input type="number" min="1" placeholder="qty" id="peng-qty-${it.id}" />
         <input type="date" value="${todayStr()}" id="peng-date-${it.id}" />
-        <button class="btn sm" data-add-peng="${it.id}">Tambah</button>
+        <input type="text" placeholder="PIC" id="peng-pic-${it.id}" />
+        <button class="btn sm" data-add-peng="${it.id}">+</button>
       </div>` : (!p.canEditPengambilan ? `<div class="locked">Hanya PPIC/SF</div>` : '')}
     </div>
 
@@ -537,7 +586,14 @@ function attachEvents(){
       sb.focus(); sb.setSelectionRange(state.search.length,state.search.length);
     };
   }
-
+  const dashSrch = document.getElementById('dashSearch');
+  if(dashSrch){
+    dashSrch.oninput = (e)=>{
+      state.dashSearch = e.target.value; render();
+      const d = document.getElementById('dashSearch');
+      if(d){ d.focus(); d.setSelectionRange(state.dashSearch.length, state.dashSearch.length); }
+    };
+  }
   const toggleAdd = document.getElementById('toggleAdd');
   if(toggleAdd) toggleAdd.onclick = ()=>{ state.addOpen = !state.addOpen; render(); };
 
@@ -598,9 +654,11 @@ function attachEvents(){
     const id = addWh.dataset.addWh;
     const qty = Number(document.getElementById('wh-qty-'+id).value);
     const date = document.getElementById('wh-date-'+id).value;
+    const picEl = document.getElementById('wh-pic-'+id);
+    const pic = picEl ? picEl.value.trim() : '';
     if(!qty||qty<=0){ showToast('Isi qty.'); return; }
     try{
-      state.items = await api(`/items/${id}/wh-ready`, {method:'POST', body: JSON.stringify({qty, date})});
+      state.items = await api(`/items/${id}/wh-ready`, {method:'POST', body: JSON.stringify({qty, date, pic})});
       render();
     }catch(e){ showToast(e.message); }
   };
@@ -610,9 +668,11 @@ function attachEvents(){
     const id = addPeng.dataset.addPeng;
     const qty = Number(document.getElementById('peng-qty-'+id).value);
     const date = document.getElementById('peng-date-'+id).value;
+    const picEl = document.getElementById('peng-pic-'+id);
+    const pic = picEl ? picEl.value.trim() : '';
     if(!qty||qty<=0){ showToast('Isi qty.'); return; }
     try{
-      state.items = await api(`/items/${id}/pengambilan`, {method:'POST', body: JSON.stringify({qty, date})});
+      state.items = await api(`/items/${id}/pengambilan`, {method:'POST', body: JSON.stringify({qty, date, pic})});
       render();
     }catch(e){ showToast(e.message); }
   };
