@@ -174,13 +174,19 @@ app.post('/api/items/bulk', requirePerm('addItem'), async (req, res) => {
     if (!Array.isArray(items) || items.length === 0) return res.status(400).json({ error: 'Array items wajib diisi.' });
     const limited = items.slice(0, 200);
     for (const item of limited) {
-      const { spk, xfd, qty } = item;
+      const { spk, xfd, qty, stage } = item;
       if (!spk || !xfd || !qty || Number(qty) <= 0) continue;
       const id = crypto.randomUUID();
       await pool.query(
         'INSERT INTO items (id, spk, xfd, qty, created_by, planning_done, planning_date) VALUES ($1,$2,$3,$4,$5,true,CURRENT_DATE)',
         [id, spk, xfd, Number(qty), req.role]
       );
+      if (stage === 'gudang') {
+        await pool.query(
+          'INSERT INTO wh_ready_history (item_id, qty, date, by_role) VALUES ($1,$2,CURRENT_DATE,$3)',
+          [id, Number(qty), req.role]
+        );
+      }
     }
     res.json(await getFullItems());
   } catch (e) {
