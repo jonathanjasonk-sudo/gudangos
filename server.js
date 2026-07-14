@@ -12,12 +12,11 @@ app.use(express.static(path.join(__dirname, 'public')));
 // ---------- Database ----------
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: process.env.DATABASE_URL && process.env.DATABASE_URL.includes('railway')
-    ? { rejectUnauthorized: false }
-    : (process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false)
+  ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false
 });
 
 async function initDb() {
+  // Run each CREATE TABLE separately — pg driver may fail on multi-statement strings
   await pool.query(`
     CREATE TABLE IF NOT EXISTS items (
       id TEXT PRIMARY KEY,
@@ -28,21 +27,27 @@ async function initDb() {
       created_by TEXT,
       planning_done BOOLEAN DEFAULT false,
       planning_date DATE
-    );
+    )
+  `);
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS wh_ready_history (
       id SERIAL PRIMARY KEY,
       item_id TEXT REFERENCES items(id) ON DELETE CASCADE,
       qty INTEGER NOT NULL,
       date DATE NOT NULL,
       by_role TEXT
-    );
+    )
+  `);
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS pengambilan_history (
       id SERIAL PRIMARY KEY,
       item_id TEXT REFERENCES items(id) ON DELETE CASCADE,
       qty INTEGER NOT NULL,
       date DATE NOT NULL,
       by_role TEXT
-    );
+    )
+  `);
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS returan (
       id TEXT PRIMARY KEY,
       item_id TEXT REFERENCES items(id) ON DELETE CASCADE,
@@ -53,7 +58,7 @@ async function initDb() {
       status TEXT DEFAULT 'pending',
       confirmed_by TEXT,
       confirmed_date DATE
-    );
+    )
   `);
   console.log('Database siap.');
 }
@@ -198,14 +203,23 @@ app.post('/api/returan/:retId/confirm', requirePerm('returanConfirm'), async (re
   res.json(await getFullItems());
 });
 
+app.get('/health', (req, res) => res.json({ status: 'ok' }));
+
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 const PORT = process.env.PORT || 3000;
-initDb()
-  .then(() => app.listen(PORT, () => console.log(`Server jalan di port ${PORT}`)))
-  .catch(err => {
-    console.error('Gagal konek database:', err);
-    process.exit(1);
-  });
+
+async function startServer() {
+  try {
+    await initDb();
+  } catch (err) {
+    console.error('Gagal init database:', err.message);
+    // Tetap lanjut listen agar Railway tidak anggap crash saat DB belum siap
+    // Railway akan restart container jika proses mati
+  }
+  app.listen(PORT, '0.0.0.0', () => console.log(`Server jalan di port ${PORT}`));
+}
+
+startServer();
