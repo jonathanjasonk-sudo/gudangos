@@ -58,6 +58,7 @@
   .btn.amber{background:var(--amber);color:#2A1D00;}
   .btn.ghost{background:none;border:1px solid var(--line);color:var(--text);}
   .btn.sm{padding:6px 12px;font-size:13px;border-radius:6px;}
+  .btn.danger{background:var(--red);color:#fff;}
   .add-form{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:16px;display:none;}
   .add-form.open{display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:10px;align-items:end;}
   .add-form label{font-size:11.5px;color:var(--text2);display:block;margin-bottom:4px;}
@@ -113,7 +114,7 @@
   .col-antrian .kcol-badge{background:var(--navy);color:#fff;}
   .col-whparsial .kcol-badge{background:#FEF3DE;color:var(--amber-d);}
   .col-whok .kcol-badge{background:#DBEAFE;color:#1E40AF;}
-  .col-selesai .kcol-badge{background:var(--green-bg);color:var(--green-d);}
+  .col-selesai .kcol-badge{background:var(--red-bg);color:var(--red-d);}
   .kcard{background:#fff;border-radius:9px;padding:10px 12px;margin-bottom:8px;cursor:pointer;border:1px solid transparent;transition:.12s;box-shadow:0 1px 3px rgba(0,0,0,.05);}
   .kcard:hover{border-color:var(--amber);box-shadow:0 2px 8px rgba(0,0,0,.1);}
   .kcard-spk{font-family:'Barlow Condensed';font-size:17px;font-weight:700;color:var(--navy);}
@@ -276,32 +277,33 @@ function renderMain(){
 function renderDashboard(){
   const items = state.items;
   const total = items.length;
-  const antrian=[], whParsial=[], whOk=[], selesai=[];
+  const planning=[], gudang=[], pengambilan=[], retur=[];
   let retActive=0, overdueCount=0;
   items.forEach(it=>{
     const ws = stageStatus(it.whReady, it.qty);
     const ps = stageStatus(it.pengambilan, it.qty);
-    retActive += activeReturan(it).length;
+    const ar = activeReturan(it);
+    retActive += ar.length;
     if(dayjs(it.xfd).isBefore(dayjs(),'day') && ps!=='ok') overdueCount++;
-    if(ps==='ok') selesai.push(it);
-    else if(ws==='ok') whOk.push(it);
-    else if(ws==='partial') whParsial.push(it);
-    else antrian.push(it);
+    if(ar.length>0) retur.push(it);
+    else if(ps!=='pending') pengambilan.push(it);
+    else if(ws!=='pending') gudang.push(it);
+    else planning.push(it);
   });
   if(total===0) return '<div class="empty">Belum ada data SPK. Tambahkan lewat tab "Data SPK" (perlu login PPIC).</div>';
   return `
   <div class="summary-cards">
     <div class="scard"><div class="num">${total}</div><div class="lbl">Total SPK</div></div>
-    <div class="scard ${antrian.length>0?'':'good'}"><div class="num">${antrian.length}</div><div class="lbl">Antrian<br>Belum WH Siap</div></div>
-    <div class="scard ${retActive>0?'warn':''}"><div class="num">${retActive}</div><div class="lbl">Returan 退料<br>Aktif</div></div>
+    <div class="scard ${planning.length>0?'':'good'}"><div class="num">${planning.length}</div><div class="lbl">Planning<br>Belum Gudang</div></div>
+    <div class="scard ${retActive>0?'warn':''}"><div class="num">${retActive}</div><div class="lbl">Retur 退料<br>Aktif</div></div>
     <div class="scard ${overdueCount>0?'warn':''}"><div class="num">${overdueCount}</div><div class="lbl">XFD Lewat<br>Belum Selesai</div></div>
   </div>
   <div class="pipeline-title">Pipeline SPK</div>
   <div class="kanban">
-    ${renderKanbanCol('col-antrian','Antrian','計劃 · Belum WH',antrian,'antrian')}
-    ${renderKanbanCol('col-whparsial','WH Proses','備料 Parsial',whParsial,'wh-partial')}
-    ${renderKanbanCol('col-whok','WH Siap','備料 OK',whOk,'wh-ok')}
-    ${renderKanbanCol('col-selesai','Selesai','領料 OK',selesai,'done')}
+    ${renderKanbanCol('col-antrian','Planning','計劃',planning,'planning')}
+    ${renderKanbanCol('col-whparsial','Gudang','備料',gudang,'gudang')}
+    ${renderKanbanCol('col-whok','Pengambilan','領料',pengambilan,'pengambilan')}
+    ${renderKanbanCol('col-selesai','Retur','退料',retur,'retur')}
   </div>`;
 }
 
@@ -363,22 +365,28 @@ function renderKanbanCol(cls, title, zh, items, stage){
 function renderKanbanCard(it, stage){
   const whSum = stageSum(it.whReady);
   const pengSum = stageSum(it.pengambilan);
-  const isOv = dayjs(it.xfd).isBefore(dayjs(),'day') && stageStatus(it.pengambilan,it.qty)!=='ok';
+  const ws = stageStatus(it.whReady, it.qty);
+  const ps = stageStatus(it.pengambilan, it.qty);
+  const isOv = dayjs(it.xfd).isBefore(dayjs(),'day') && ps!=='ok';
   const ar = activeReturan(it);
   let prog = '';
-  if(stage==='wh-partial'){
-    prog = `<div class="kprog"><div class="kprog-lbl"><span>備料</span><span>${whSum}/${it.qty}</span></div><div class="kprog-track"><div class="kprog-fill am" style="width:${Math.min(100,whSum/it.qty*100)}%"></div></div></div>`;
-  } else if(stage==='wh-ok'){
-    prog = `<div class="kprog"><div class="kprog-lbl"><span>備料 ✓</span><span>${whSum}/${it.qty}</span></div><div class="kprog-track"><div class="kprog-fill gn" style="width:100%"></div></div></div>`;
-    if(pengSum>0) prog += `<div class="kprog" style="margin-top:3px;"><div class="kprog-lbl"><span>領料</span><span>${pengSum}/${it.qty}</span></div><div class="kprog-track"><div class="kprog-fill am" style="width:${Math.min(100,pengSum/it.qty*100)}%"></div></div></div>`;
-  } else if(stage==='done'){
-    prog = `<div class="kprog"><div class="kprog-lbl"><span>領料 ✓</span><span>${pengSum}/${it.qty}</span></div><div class="kprog-track"><div class="kprog-fill gn" style="width:100%"></div></div></div>`;
+  if(stage==='gudang'){
+    const pct = Math.min(100, whSum/it.qty*100);
+    prog = `<div class="kprog"><div class="kprog-lbl"><span>備料${ws==='ok'?' ✓':''}</span><span>${whSum}/${it.qty}</span></div><div class="kprog-track"><div class="kprog-fill ${ws==='ok'?'gn':'am'}" style="width:${pct}%"></div></div></div>`;
+  } else if(stage==='pengambilan'){
+    if(whSum>0) prog += `<div class="kprog"><div class="kprog-lbl"><span>備料${ws==='ok'?' ✓':''}</span><span>${whSum}/${it.qty}</span></div><div class="kprog-track"><div class="kprog-fill ${ws==='ok'?'gn':'am'}" style="width:${Math.min(100,whSum/it.qty*100)}%"></div></div></div>`;
+    const pct = Math.min(100, pengSum/it.qty*100);
+    prog += `<div class="kprog" style="margin-top:3px;"><div class="kprog-lbl"><span>領料${ps==='ok'?' ✓':''}</span><span>${pengSum}/${it.qty}</span></div><div class="kprog-track"><div class="kprog-fill ${ps==='ok'?'gn':'am'}" style="width:${pct}%"></div></div></div>`;
+  } else if(stage==='retur'){
+    const nGudang = ar.filter(r=>r.type!=='closing').length;
+    const nClosing = ar.filter(r=>r.type==='closing').length;
+    prog = `<div style="font-size:11px;margin-top:4px;display:flex;gap:4px;flex-wrap:wrap;">${nGudang>0?`<span style="background:#FEF3DE;color:var(--amber-d);padding:1px 6px;border-radius:4px;">Retur Gudang: ${nGudang}</span>`:''} ${nClosing>0?`<span style="background:var(--red-bg);color:var(--red-d);padding:1px 6px;border-radius:4px;">Closingan: ${nClosing}</span>`:''}</div>`;
   }
   return `<div class="kcard" data-goto="${it.id}">
     <div class="kcard-spk">${esc(it.spk)}</div>
     <div class="kcard-xfd ${isOv?'ov':''}">XFD ${fmtDate(it.xfd)}${isOv?' ⚠':''}</div>
     <div class="kcard-qty">QTY ${it.qty}</div>
-    ${prog}${ar.length>0?`<div class="kcard-ret">⚠ ${ar.length} Returan</div>`:''}
+    ${prog}${ar.length>0?`<div class="kcard-ret">⚠ ${ar.length} Retur Aktif</div>`:''}
   </div>`;
 }
 
@@ -445,22 +453,30 @@ function renderItemDetail(it,p,ws,ps){
     </div>
 
     <div class="stage-box">
-      <h4>Returan <span class="zh">退料</span></h4>
-      ${activeReturan(it).length===0 ? `<div style="font-size:12px;color:var(--text2);">Tidak ada returan aktif</div>` : activeReturan(it).map(r=>`
+      <h4>Retur <span class="zh">退料</span></h4>
+      ${activeReturan(it).length===0 ? `<div style="font-size:12px;color:var(--text2);">Tidak ada retur aktif</div>` : activeReturan(it).map(r=>`
         <div class="ret-item">
-          <div class="top"><span>Qty ${r.qty}</span><span>${fmtDate(r.date)}</span></div>
+          <div class="top"><span>Qty ${r.qty} <span style="font-size:10px;padding:1px 5px;border-radius:3px;background:${r.type==='closing'?'#FDEAEA':'#FEF3DE'};color:${r.type==='closing'?'var(--red-d)':'var(--amber-d)'};">${r.type==='closing'?'Closingan':'Retur Gudang'}</span></span><span>${fmtDate(r.date)}</span></div>
           <div class="meta">${esc(r.reason||'-')} · diajukan ${esc(r.by)}</div>
           ${p.canConfirmReturan ? `<button class="btn sm ghost" style="margin-top:6px;" data-confirm-ret="${r.id}">Tandai OK (gudang)</button>` : ''}
         </div>
       `).join('')}
       ${p.canAddReturan ? `
       <div class="inline-form">
+        <select id="ret-type-${it.id}" style="padding:6px 8px;border:1px solid var(--line);border-radius:6px;font-size:12.5px;flex:0 0 auto;">
+          <option value="gudang">Retur Gudang</option>
+          <option value="closing">Closingan</option>
+        </select>
         <input type="number" min="1" placeholder="qty" id="ret-qty-${it.id}" />
         <input type="text" placeholder="alasan" id="ret-reason-${it.id}" />
         <button class="btn sm" data-add-ret="${it.id}">Ajukan</button>
       </div>` : `<div class="locked">Hanya PPIC/WH/SF</div>`}
     </div>
-  </div>`;
+  </div>
+  ${p.canAddItem ? `
+  <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--line);display:flex;justify-content:flex-end;">
+    <button class="btn sm danger" data-del-item="${it.id}">Hapus SPK Ini</button>
+  </div>` : ''}`;
 }
 
 function attachEvents(){
@@ -596,10 +612,24 @@ function attachEvents(){
     const id = addRet.dataset.addRet;
     const qty = Number(document.getElementById('ret-qty-'+id).value);
     const reason = document.getElementById('ret-reason-'+id).value.trim();
+    const typeEl = document.getElementById('ret-type-'+id);
+    const type = typeEl ? typeEl.value : 'gudang';
     if(!qty||qty<=0){ showToast('Isi qty.'); return; }
     try{
-      state.items = await api(`/items/${id}/returan`, {method:'POST', body: JSON.stringify({qty, reason})});
+      state.items = await api(`/items/${id}/returan`, {method:'POST', body: JSON.stringify({qty, reason, type})});
       render();
+    }catch(e){ showToast(e.message); }
+  };
+
+  const delItem = app.querySelector('[data-del-item]');
+  if(delItem) delItem.onclick = async ()=>{
+    const id = delItem.dataset.delItem;
+    if(!confirm('Hapus SPK ini? Semua data (備料, 領料, 退料) akan ikut terhapus.')) return;
+    try{
+      state.items = await api(`/items/${id}`, {method:'DELETE'});
+      state.expanded = null;
+      render();
+      showToast('SPK berhasil dihapus.');
     }catch(e){ showToast(e.message); }
   };
 

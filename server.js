@@ -60,6 +60,7 @@ async function initDb() {
       confirmed_date DATE
     )
   `);
+  await pool.query(`ALTER TABLE returan ADD COLUMN IF NOT EXISTS type TEXT DEFAULT 'gudang'`);
   console.log('Database siap.');
 }
 
@@ -139,6 +140,7 @@ async function getFullItems() {
     pengambilan: { history: peng.filter(h => h.item_id === it.id).map(h => ({ qty: h.qty, date: h.date, by: h.by_role })) },
     returan: ret.filter(r => r.item_id === it.id).map(r => ({
       id: r.id, qty: r.qty, reason: r.reason, date: r.date, by: r.by_role,
+      type: r.type || 'gudang',
       status: r.status, confirmedBy: r.confirmed_by, confirmedDate: r.confirmed_date
     }))
   }));
@@ -206,12 +208,13 @@ app.post('/api/items/:id/pengambilan', requirePerm('pengambilan'), async (req, r
 });
 
 app.post('/api/items/:id/returan', requirePerm('returanAdd'), async (req, res) => {
-  const { qty, reason } = req.body || {};
+  const { qty, reason, type } = req.body || {};
   if (!qty || qty <= 0) return res.status(400).json({ error: 'Qty wajib diisi.' });
+  const validType = type === 'closing' ? 'closing' : 'gudang';
   const id = crypto.randomUUID();
   await pool.query(
-    'INSERT INTO returan (id, item_id, qty, reason, date, by_role) VALUES ($1,$2,$3,$4,CURRENT_DATE,$5)',
-    [id, req.params.id, qty, reason || '', req.role]
+    'INSERT INTO returan (id, item_id, qty, reason, date, by_role, type) VALUES ($1,$2,$3,$4,CURRENT_DATE,$5,$6)',
+    [id, req.params.id, qty, reason || '', req.role, validType]
   );
   res.json(await getFullItems());
 });
@@ -222,6 +225,16 @@ app.post('/api/returan/:retId/confirm', requirePerm('returanConfirm'), async (re
     [req.role, req.params.retId]
   );
   res.json(await getFullItems());
+});
+
+app.delete('/api/items/:id', requirePerm('planning'), async (req, res) => {
+  try {
+    await pool.query('DELETE FROM items WHERE id=$1', [req.params.id]);
+    res.json(await getFullItems());
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Gagal menghapus item.' });
+  }
 });
 
 app.get('/health', (req, res) => res.json({ status: 'ok' }));
