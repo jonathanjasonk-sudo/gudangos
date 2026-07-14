@@ -93,6 +93,59 @@
   .ret-item .meta{color:var(--text2);margin-top:2px;}
   .empty{text-align:center;color:var(--text2);padding:40px 10px;font-size:13.5px;}
   .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--navy);color:#fff;padding:10px 18px;border-radius:8px;font-size:13px;z-index:50;}
+  /* Summary cards */
+  .summary-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:24px;}
+  .scard{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px;}
+  .scard .num{font-family:'Barlow Condensed';font-size:28px;font-weight:700;line-height:1;}
+  .scard .lbl{font-size:11px;color:var(--text2);margin-top:4px;line-height:1.4;}
+  .scard.warn .num{color:var(--red);}
+  .scard.good .num{color:var(--green);}
+  /* Kanban */
+  .pipeline-title{font-size:15px;font-weight:600;color:var(--navy);margin-bottom:12px;padding-left:12px;border-left:4px solid var(--amber);}
+  .kanban{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;align-items:start;}
+  @media(max-width:900px){.kanban{grid-template-columns:repeat(2,1fr);}}
+  @media(max-width:500px){.kanban{grid-template-columns:1fr;}}
+  .kcol{background:#EDEDEF;border-radius:12px;padding:10px;}
+  .kcol-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+  .kcol-title{font-family:'Barlow Condensed';font-size:13px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.04em;}
+  .kcol-zh{font-family:'Inter';font-weight:400;color:var(--text2);font-size:11px;display:block;margin-top:1px;}
+  .kcol-badge{border-radius:10px;padding:2px 8px;font-size:12px;font-weight:700;}
+  .col-antrian .kcol-badge{background:var(--navy);color:#fff;}
+  .col-whparsial .kcol-badge{background:#FEF3DE;color:var(--amber-d);}
+  .col-whok .kcol-badge{background:#DBEAFE;color:#1E40AF;}
+  .col-selesai .kcol-badge{background:var(--green-bg);color:var(--green-d);}
+  .kcard{background:#fff;border-radius:9px;padding:10px 12px;margin-bottom:8px;cursor:pointer;border:1px solid transparent;transition:.12s;box-shadow:0 1px 3px rgba(0,0,0,.05);}
+  .kcard:hover{border-color:var(--amber);box-shadow:0 2px 8px rgba(0,0,0,.1);}
+  .kcard-spk{font-family:'Barlow Condensed';font-size:17px;font-weight:700;color:var(--navy);}
+  .kcard-xfd{font-size:11.5px;color:var(--text2);margin-top:1px;}
+  .kcard-xfd.ov{color:var(--red);font-weight:600;}
+  .kcard-qty{font-size:11.5px;color:var(--text2);margin-bottom:4px;}
+  .kprog{margin-top:5px;}
+  .kprog-lbl{font-size:11px;color:var(--text2);display:flex;justify-content:space-between;margin-bottom:2px;}
+  .kprog-track{background:#EDEDEF;border-radius:4px;height:5px;overflow:hidden;}
+  .kprog-fill{height:100%;border-radius:4px;}
+  .kprog-fill.am{background:var(--amber);}
+  .kprog-fill.gn{background:var(--green);}
+  .kcard-ret{font-size:11px;color:var(--red-d);background:var(--red-bg);border-radius:4px;padding:2px 6px;margin-top:5px;display:inline-block;}
+  .kcol-empty{text-align:center;color:var(--text2);font-size:12px;padding:16px 0;}
+  /* Bulk input */
+  .bulk-wrap{background:var(--card);border:1px solid var(--amber);border-radius:12px;padding:16px;margin-bottom:16px;}
+  .bulk-wrap h3{font-size:15px;color:var(--navy);margin-bottom:12px;font-family:'Barlow Condensed';}
+  .bulk-table{width:100%;border-collapse:collapse;font-size:13px;}
+  .bulk-table th{text-align:left;padding:5px 8px;font-size:11px;color:var(--text2);font-weight:600;border-bottom:1px solid var(--line);text-transform:uppercase;}
+  .bulk-table td{padding:3px 6px;vertical-align:middle;}
+  .bulk-table input[type=text],.bulk-table input[type=number]{width:100%;padding:6px 8px;border:1px solid var(--line);border-radius:6px;font-size:13px;}
+  .bulk-table input[type=date]{padding:6px 8px;border:1px solid var(--line);border-radius:6px;font-size:13px;width:100%;}
+  .col-no{width:28px;text-align:center;color:var(--text2);font-size:12px;}
+  .col-qty{width:90px;}
+  .col-xfd{width:140px;}
+  .col-del{width:32px;text-align:center;}
+  .del-row-btn{background:none;border:none;color:var(--text2);cursor:pointer;font-size:13px;padding:3px 6px;border-radius:4px;}
+  .del-row-btn:hover{color:var(--red);background:var(--red-bg);}
+  .bulk-actions{display:flex;gap:10px;margin-top:10px;align-items:center;flex-wrap:wrap;}
+  .bulk-hint{font-size:11.5px;color:var(--text2);}
+  /* Planning done tag */
+  .planning-done-tag{background:var(--green-bg);color:var(--green-d);border-radius:6px;padding:4px 10px;font-size:12.5px;font-weight:600;display:inline-block;margin-top:6px;}
 </style>
 </head>
 <body>
@@ -223,34 +276,33 @@ function renderMain(){
 function renderDashboard(){
   const items = state.items;
   const total = items.length;
-  let planDone=0, whOk=0, whPartial=0, pengOk=0, pengPartial=0, retActive=0, overdue=[];
+  const antrian=[], whParsial=[], whOk=[], selesai=[];
+  let retActive=0, overdueCount=0;
   items.forEach(it=>{
-    if(it.planning.done) planDone++;
     const ws = stageStatus(it.whReady, it.qty);
     const ps = stageStatus(it.pengambilan, it.qty);
-    if(ws==='ok') whOk++; if(ws==='partial') whPartial++;
-    if(ps==='ok') pengOk++; if(ps==='partial') pengPartial++;
-    const ar = activeReturan(it);
-    retActive += ar.length;
-    const isOverdue = dayjs(it.xfd).isBefore(dayjs(), 'day') && ps!=='ok';
-    if(isOverdue) overdue.push(it);
+    retActive += activeReturan(it).length;
+    if(dayjs(it.xfd).isBefore(dayjs(),'day') && ps!=='ok') overdueCount++;
+    if(ps==='ok') selesai.push(it);
+    else if(ws==='ok') whOk.push(it);
+    else if(ws==='partial') whParsial.push(it);
+    else antrian.push(it);
   });
+  if(total===0) return '<div class="empty">Belum ada data SPK. Tambahkan lewat tab "Data SPK" (perlu login PPIC).</div>';
   return `
-  <div class="cards">
-    <div class="card"><div class="num">${total}</div><div class="lbl">Total SPK</div></div>
-    <div class="card"><div class="num">${planDone}/${total}</div><div class="lbl">Planning 計劃 selesai</div></div>
-    <div class="card"><div class="num">${whOk}</div><div class="lbl">WH Ready 備料 OK (${whPartial} parsial)</div></div>
-    <div class="card"><div class="num">${pengOk}</div><div class="lbl">Pengambilan 領料 OK (${pengPartial} parsial)</div></div>
-    <div class="card ${retActive>0?'warn':''}"><div class="num">${retActive}</div><div class="lbl">Returan 退料 aktif</div></div>
-    <div class="card ${overdue.length>0?'warn':''}"><div class="num">${overdue.length}</div><div class="lbl">XFD lewat, belum diambil</div></div>
+  <div class="summary-cards">
+    <div class="scard"><div class="num">${total}</div><div class="lbl">Total SPK</div></div>
+    <div class="scard ${antrian.length>0?'':'good'}"><div class="num">${antrian.length}</div><div class="lbl">Antrian<br>Belum WH Siap</div></div>
+    <div class="scard ${retActive>0?'warn':''}"><div class="num">${retActive}</div><div class="lbl">Returan 退料<br>Aktif</div></div>
+    <div class="scard ${overdueCount>0?'warn':''}"><div class="num">${overdueCount}</div><div class="lbl">XFD Lewat<br>Belum Selesai</div></div>
   </div>
-  ${overdue.length>0 ? `
-  <div class="section-title">SPK lewat XFD belum selesai pengambilan</div>
-  <div class="alert-list">
-    ${overdue.map(it=>`<div class="alert-row"><span class="spk">${esc(it.spk)}</span><span>XFD ${fmtDate(it.xfd)} · qty ${it.qty}</span></div>`).join('')}
-  </div>` : ''}
-  ${total===0 ? '<div class="empty">Belum ada data SPK. Tambahkan lewat tab "Data SPK" (perlu login PPIC).</div>' : ''}
-  `;
+  <div class="pipeline-title">Pipeline SPK</div>
+  <div class="kanban">
+    ${renderKanbanCol('col-antrian','Antrian','計劃 · Belum WH',antrian,'antrian')}
+    ${renderKanbanCol('col-whparsial','WH Proses','備料 Parsial',whParsial,'wh-partial')}
+    ${renderKanbanCol('col-whok','WH Siap','備料 OK',whOk,'wh-ok')}
+    ${renderKanbanCol('col-selesai','Selesai','領料 OK',selesai,'done')}
+  </div>`;
 }
 
 function renderData(p){
@@ -259,17 +311,75 @@ function renderData(p){
   return `
   <div class="toolbar">
     <input type="text" id="searchBox" placeholder="Cari SPK..." value="${esc(state.search)}" />
-    ${p.canAddItem ? `<button class="btn amber" id="toggleAdd">${state.addOpen?'Tutup form':'+ Tambah SPK baru'}</button>` : ''}
+    ${p.canAddItem ? `<button class="btn amber" id="toggleAdd">${state.addOpen?'Tutup':'+ Tambah SPK'}</button>` : ''}
   </div>
-  ${p.canAddItem ? `
-  <div class="add-form ${state.addOpen?'open':''}">
-    <div><label>SPK</label><input type="text" id="newSpk" placeholder="SPK-0001" /></div>
-    <div><label>XFD</label><input type="date" id="newXfd" value="${todayStr()}" /></div>
-    <div><label>QTY</label><input type="number" id="newQty" min="1" placeholder="1000" /></div>
-    <button class="btn" id="saveNewItem">Simpan</button>
-  </div>` : ''}
+  ${p.canAddItem && state.addOpen ? renderBulkForm() : ''}
   ${items.length===0 ? '<div class="empty">Tidak ada data.</div>' : items.map(it=>renderItemCard(it,p)).join('')}
   `;
+}
+
+function renderBulkForm(){
+  const d = todayStr();
+  const rows = [0,1,2].map(i=>`
+    <tr>
+      <td class="col-no">${i+1}</td>
+      <td><input type="text" class="bulk-spk" placeholder="SPK-001" /></td>
+      <td class="col-xfd"><input type="date" class="bulk-xfd" value="${d}" /></td>
+      <td class="col-qty"><input type="number" class="bulk-qty" min="1" placeholder="1000" /></td>
+      <td class="col-del"><button class="del-row-btn" type="button">✕</button></td>
+    </tr>`).join('');
+  return `
+  <div class="bulk-wrap" id="bulkWrap">
+    <h3>Tambah SPK Baru (bisa banyak sekaligus)</h3>
+    <table class="bulk-table">
+      <thead><tr>
+        <th class="col-no">#</th>
+        <th>SPK</th>
+        <th class="col-xfd">XFD (Tanggal)</th>
+        <th class="col-qty">QTY</th>
+        <th class="col-del"></th>
+      </tr></thead>
+      <tbody id="bulkTbody">${rows}</tbody>
+    </table>
+    <div class="bulk-actions">
+      <button class="btn ghost sm" id="addBulkRow">+ Tambah Baris</button>
+      <button class="btn amber" id="saveBulkItems">Simpan Semua</button>
+      <span class="bulk-hint">Baris kosong akan diabaikan · Planning otomatis selesai</span>
+    </div>
+  </div>`;
+}
+
+function renderKanbanCol(cls, title, zh, items, stage){
+  return `
+  <div class="kcol ${cls}">
+    <div class="kcol-head">
+      <div><span class="kcol-title">${title}</span><span class="kcol-zh">${zh}</span></div>
+      <span class="kcol-badge">${items.length}</span>
+    </div>
+    ${items.length===0 ? '<div class="kcol-empty">Kosong</div>' : items.map(it=>renderKanbanCard(it,stage)).join('')}
+  </div>`;
+}
+
+function renderKanbanCard(it, stage){
+  const whSum = stageSum(it.whReady);
+  const pengSum = stageSum(it.pengambilan);
+  const isOv = dayjs(it.xfd).isBefore(dayjs(),'day') && stageStatus(it.pengambilan,it.qty)!=='ok';
+  const ar = activeReturan(it);
+  let prog = '';
+  if(stage==='wh-partial'){
+    prog = `<div class="kprog"><div class="kprog-lbl"><span>備料</span><span>${whSum}/${it.qty}</span></div><div class="kprog-track"><div class="kprog-fill am" style="width:${Math.min(100,whSum/it.qty*100)}%"></div></div></div>`;
+  } else if(stage==='wh-ok'){
+    prog = `<div class="kprog"><div class="kprog-lbl"><span>備料 ✓</span><span>${whSum}/${it.qty}</span></div><div class="kprog-track"><div class="kprog-fill gn" style="width:100%"></div></div></div>`;
+    if(pengSum>0) prog += `<div class="kprog" style="margin-top:3px;"><div class="kprog-lbl"><span>領料</span><span>${pengSum}/${it.qty}</span></div><div class="kprog-track"><div class="kprog-fill am" style="width:${Math.min(100,pengSum/it.qty*100)}%"></div></div></div>`;
+  } else if(stage==='done'){
+    prog = `<div class="kprog"><div class="kprog-lbl"><span>領料 ✓</span><span>${pengSum}/${it.qty}</span></div><div class="kprog-track"><div class="kprog-fill gn" style="width:100%"></div></div></div>`;
+  }
+  return `<div class="kcard" data-goto="${it.id}">
+    <div class="kcard-spk">${esc(it.spk)}</div>
+    <div class="kcard-xfd ${isOv?'ov':''}">XFD ${fmtDate(it.xfd)}${isOv?' ⚠':''}</div>
+    <div class="kcard-qty">QTY ${it.qty}</div>
+    ${prog}${ar.length>0?`<div class="kcard-ret">⚠ ${ar.length} Returan</div>`:''}
+  </div>`;
 }
 
 function renderItemCard(it, p){
@@ -286,7 +396,7 @@ function renderItemCard(it, p){
         <div class="meta ${overdue?'overdue':''}">XFD ${fmtDate(it.xfd)}${overdue?' · terlewat':''} · QTY ${it.qty}</div>
       </div>
       <div class="stages-mini">
-        <span class="stat-pill ${it.planning.done?'ok':'pending'}">計劃 ${it.planning.done?'OK':'-'}</span>
+        <span class="stat-pill ok">計劃 OK</span>
         <span class="stat-pill ${ws}">備料 ${ws==='ok'?'OK':ws==='partial'?'Parsial':'-'}</span>
         <span class="stat-pill ${ps}">領料 ${ps==='ok'?'OK':ps==='partial'?'Parsial':'-'}</span>
         ${ar.length>0 ? `<span class="stat-pill hasret">退料 ${ar.length}</span>` : ''}
@@ -305,11 +415,7 @@ function renderItemDetail(it,p,ws,ps){
   <div class="stage-grid">
     <div class="stage-box">
       <h4>Planning <span class="zh">計劃</span></h4>
-      ${it.planning.done
-        ? `<div class="stat-pill ok" style="margin-top:6px;">Selesai · ${fmtDate(it.planning.date)}</div>`
-        : (p.canEditPlanning
-            ? `<div class="inline-form"><button class="btn sm amber" data-planning-done="${it.id}">Tandai selesai</button></div>`
-            : `<div class="locked">Belum ditandai selesai</div>`)}
+      <div class="planning-done-tag">✓ Selesai · ${fmtDate(it.planning.date || it.createdAt)}</div>
     </div>
 
     <div class="stage-box">
@@ -411,29 +517,55 @@ function attachEvents(){
   const toggleAdd = document.getElementById('toggleAdd');
   if(toggleAdd) toggleAdd.onclick = ()=>{ state.addOpen = !state.addOpen; render(); };
 
-  const saveNew = document.getElementById('saveNewItem');
-  if(saveNew) saveNew.onclick = async ()=>{
-    const spk = document.getElementById('newSpk').value.trim();
-    const xfd = document.getElementById('newXfd').value;
-    const qty = Number(document.getElementById('newQty').value);
-    if(!spk || !xfd || !qty || qty<=0){ showToast('Isi SPK, XFD, dan QTY dengan benar.'); return; }
-    try{
-      state.items = await api('/items', {method:'POST', body: JSON.stringify({spk, xfd, qty})});
-      state.addOpen = false; render();
-    }catch(e){ showToast(e.message); }
-  };
+  // Bulk form: add row
+  const addBulkRowBtn = document.getElementById('addBulkRow');
+  if(addBulkRowBtn){
+    addBulkRowBtn.onclick = ()=>{
+      const tbody = document.getElementById('bulkTbody');
+      const idx = tbody.rows.length;
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td class="col-no">${idx+1}</td><td><input type="text" class="bulk-spk" placeholder="SPK-001" /></td><td class="col-xfd"><input type="date" class="bulk-xfd" value="${todayStr()}" /></td><td class="col-qty"><input type="number" class="bulk-qty" min="1" placeholder="1000" /></td><td class="col-del"><button class="del-row-btn" type="button">✕</button></td>`;
+      tr.querySelector('.del-row-btn').onclick = () => delBulkRow(tr);
+      tbody.appendChild(tr);
+      tr.querySelector('.bulk-spk').focus();
+    };
+    document.querySelectorAll('#bulkTbody .del-row-btn').forEach(btn=>{
+      btn.onclick = () => delBulkRow(btn.closest('tr'));
+    });
+  }
+
+  // Bulk form: save all
+  const saveBulkBtn = document.getElementById('saveBulkItems');
+  if(saveBulkBtn){
+    saveBulkBtn.onclick = async ()=>{
+      const rows = [];
+      document.querySelectorAll('#bulkTbody tr').forEach(tr=>{
+        const spk = tr.querySelector('.bulk-spk').value.trim();
+        const xfd = tr.querySelector('.bulk-xfd').value;
+        const qty = Number(tr.querySelector('.bulk-qty').value);
+        if(spk && xfd && qty>0) rows.push({spk,xfd,qty});
+      });
+      if(rows.length===0){ showToast('Minimal 1 baris SPK harus diisi.'); return; }
+      saveBulkBtn.disabled=true; saveBulkBtn.textContent='Menyimpan...';
+      try{
+        state.items = await api('/items/bulk',{method:'POST',body:JSON.stringify({items:rows})});
+        state.addOpen=false; render();
+        showToast(`${rows.length} SPK berhasil disimpan.`);
+      }catch(e){ showToast(e.message); saveBulkBtn.disabled=false; saveBulkBtn.textContent='Simpan Semua'; }
+    };
+  }
+
+  // Kanban card → buka di Data SPK
+  app.querySelectorAll('[data-goto]').forEach(el=>{
+    el.onclick = ()=>{
+      state.tab='data'; state.expanded=el.dataset.goto; render();
+      setTimeout(()=>{ const c=document.querySelector(`[data-toggle="${el.dataset.goto}"]`); if(c) c.scrollIntoView({behavior:'smooth',block:'center'}); },80);
+    };
+  });
 
   app.querySelectorAll('[data-toggle]').forEach(el=>{
     el.onclick = ()=>{ const id = el.dataset.toggle; state.expanded = state.expanded===id ? null : id; render(); };
   });
-
-  const planBtn = app.querySelector('[data-planning-done]');
-  if(planBtn) planBtn.onclick = async ()=>{
-    try{
-      state.items = await api(`/items/${planBtn.dataset.planningDone}/planning`, {method:'POST'});
-      render();
-    }catch(e){ showToast(e.message); }
-  };
 
   const addWh = app.querySelector('[data-add-wh]');
   if(addWh) addWh.onclick = async ()=>{
@@ -479,6 +611,11 @@ function attachEvents(){
       render();
     }catch(e){ showToast(e.message); }
   };
+}
+
+function delBulkRow(tr){
+  tr.remove();
+  document.querySelectorAll('#bulkTbody tr').forEach((r,i)=>{ const n=r.querySelector('.col-no'); if(n) n.textContent=i+1; });
 }
 
 (async function init(){

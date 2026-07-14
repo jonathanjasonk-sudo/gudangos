@@ -159,10 +159,31 @@ app.post('/api/items', requirePerm('planning'), async (req, res) => {
   if (!spk || !xfd || !qty || qty <= 0) return res.status(400).json({ error: 'SPK, XFD, dan QTY wajib diisi.' });
   const id = crypto.randomUUID();
   await pool.query(
-    'INSERT INTO items (id, spk, xfd, qty, created_by) VALUES ($1,$2,$3,$4,$5)',
+    'INSERT INTO items (id, spk, xfd, qty, created_by, planning_done, planning_date) VALUES ($1,$2,$3,$4,$5,true,CURRENT_DATE)',
     [id, spk, xfd, qty, req.role]
   );
   res.json(await getFullItems());
+});
+
+app.post('/api/items/bulk', requirePerm('planning'), async (req, res) => {
+  try {
+    const { items } = req.body || {};
+    if (!Array.isArray(items) || items.length === 0) return res.status(400).json({ error: 'Array items wajib diisi.' });
+    const limited = items.slice(0, 200);
+    for (const item of limited) {
+      const { spk, xfd, qty } = item;
+      if (!spk || !xfd || !qty || Number(qty) <= 0) continue;
+      const id = crypto.randomUUID();
+      await pool.query(
+        'INSERT INTO items (id, spk, xfd, qty, created_by, planning_done, planning_date) VALUES ($1,$2,$3,$4,$5,true,CURRENT_DATE)',
+        [id, spk, xfd, Number(qty), req.role]
+      );
+    }
+    res.json(await getFullItems());
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Gagal menyimpan data.' });
+  }
 });
 
 app.post('/api/items/:id/planning', requirePerm('planning'), async (req, res) => {
