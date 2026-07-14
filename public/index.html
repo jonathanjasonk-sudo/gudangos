@@ -350,6 +350,16 @@ function matSum(history, mat){
   return history.filter(h=>h.material===mat).reduce((a,h)=>a+Number(h.qty),0);
 }
 function activeReturan(item){ return item.returan.filter(r=>r.status==='pending'); }
+// Menghitung total retur gudang vs closingan, dan sisa yang belum ditutup.
+// Contoh: retur gudang 4 pasang, closingan 3 pasang -> sisa 1 pasang masih retur aktif.
+function returanTotals(item){
+  const gudangEntries = item.returan.filter(r=>r.type!=='closing');
+  const closingEntries = item.returan.filter(r=>r.type==='closing');
+  const totalGudang = gudangEntries.reduce((a,r)=>a+Number(r.qty),0);
+  const totalClosing = closingEntries.reduce((a,r)=>a+Number(r.qty),0);
+  const sisa = Math.max(0, totalGudang - totalClosing);
+  return { totalGudang, totalClosing, sisa, gudangEntries, closingEntries };
+}
 function xfdStatus(xfdDate, isDone){
   if(isDone) return {cls:'', icon:''};
   const days = dayjs(xfdDate).diff(dayjs(),'day');
@@ -428,7 +438,7 @@ function renderDashboard(){
   const total = items.length;
   let retActive=0, overdueCount=0;
   items.forEach(it=>{
-    retActive += activeReturan(it).length;
+    if(returanTotals(it).sisa>0) retActive++;
     if(dayjs(it.xfd).isBefore(dayjs(),'day') && stageStatus(it.pengambilan,it.qty)!=='ok') overdueCount++;
   });
   const planning=[], gudang=[], pengambilan=[], retur=[], selesai=[];
@@ -440,8 +450,8 @@ function renderDashboard(){
     const isSelesai = ipPengSum>=it.qty && rbPengSum>=it.qty;
     const hasWh = it.whReady.history.length>0;
     const hasPeng = it.pengambilan.history.length>0;
-    const ar = activeReturan(it);
-    if(ar.length>0) retur.push(it);
+    const rt = returanTotals(it);
+    if(rt.sisa>0) retur.push(it);
     else if(isSelesai) selesai.push(it);
     else if(!hasWh && !hasPeng) planning.push(it);
     else {
@@ -452,7 +462,7 @@ function renderDashboard(){
   if(total===0) return '<div class="empty">Belum ada data SPK. Tambahkan lewat tab "Data SPK".</div>';
   return `
   <div class="dash-searchbar">
-    <input type="text" id="dashSearch" placeholder="🔍 Cari SPK di dashboard..." value="${esc(q)}" autocomplete="off" />
+    <input type="text" id="dashSearch" placeholder="🔍 Cari SPK di dashboard..." value="${esc(q)}" autocomplete="off" />
   </div>
   <div class="summary-cards">
     <div class="scard"><div class="num">${total}</div><div class="lbl">Total SPK</div></div>
@@ -555,7 +565,7 @@ function renderKanbanCard(it, stage){
   const pengRBqty = matSum(it.pengambilan.history,'RB_TPU');
   const ps = stageStatus(it.pengambilan, it.qty);
   const xfd = xfdStatus(it.xfd, ps==='ok');
-  const ar = activeReturan(it);
+  const rt = returanTotals(it);
   function mp(label,qty,total,cls){
     const pct=Math.min(100,total>0?qty/total*100:0);
     return `<div class="kprog"><div class="kprog-lbl"><span><span class="mat-badge ${cls}" style="font-size:9px;padding:0 4px;">${label}</span></span><span>${qty}/${total}</span></div><div class="kprog-track"><div class="kprog-fill ${qty>=total?'gn':'am'}" style="width:${pct}%"></div></div></div>`;
@@ -566,20 +576,20 @@ function renderKanbanCard(it, stage){
   } else if(stage==='pengambilan'){
     prog = mp('IP',pengIPqty,it.qty,'ip') + mp('RB/TPU',pengRBqty,it.qty,'rb');
   } else if(stage==='retur'){
-    prog=`<div style="font-size:11px;margin-top:4px;display:flex;gap:4px;flex-wrap:wrap;">${ar.length>0?`<span style="background:#FEF3DE;color:var(--amber-d);padding:1px 8px;border-radius:4px;font-weight:600;">Retur Gudang: ${ar.length}</span>`:''}</div>`;
+    prog=`<div style="font-size:11px;margin-top:4px;">Retur gudang ${rt.totalGudang} · closingan ${rt.totalClosing}</div>`;
   }
   return `<div class="kcard" data-goto="${it.id}">
     <div class="kcard-spk">${esc(it.spk)}</div>
     <div class="kcard-xfd ${xfd.cls}">XFD ${fmtDate(it.xfd)}${xfd.icon}</div>
     <div class="kcard-qty">QTY ${it.qty}</div>
-    ${prog}${ar.length>0?`<div class="kcard-ret">⚠ ${ar.length} Retur Aktif</div>`:''}
+    ${prog}${rt.sisa>0?`<div class="kcard-ret">⚠ Sisa retur ${rt.sisa} pasang</div>`:''}
   </div>`;
 }
 
 function renderItemCard(it, p){
   const ws = stageStatus(it.whReady, it.qty);
   const ps = stageStatus(it.pengambilan, it.qty);
-  const ar = activeReturan(it);
+  const rt = returanTotals(it);
   const isOpen = state.expanded === it.id;
   const xfd = xfdStatus(it.xfd, ps==='ok');
   return `
@@ -594,7 +604,7 @@ function renderItemCard(it, p){
           <span class="stat-pill ok">Planning ✓</span>
           <span class="stat-pill ${ws}">WH ${ws==='ok'?'OK':ws==='partial'?'Parsial':'-'}</span>
           <span class="stat-pill ${ps}">Ambil ${ps==='ok'?'OK':ps==='partial'?'Parsial':'-'}</span>
-          ${ar.length>0 ? `<span class="stat-pill hasret">Retur ${ar.length}</span>` : ''}
+          ${rt.sisa>0 ? `<span class="stat-pill hasret">Sisa retur ${rt.sisa}</span>` : ''}
         </div>
         ${p.canDeleteItem ? `<button class="del-spk-btn" data-del-item="${it.id}" title="Hapus SPK">🗑️ Hapus</button>` : ''}
       </div>
@@ -606,6 +616,7 @@ function renderItemCard(it, p){
 }
 
 function renderItemDetail(it,p,ws,ps){
+  const rt = returanTotals(it);
   const whIPqty = matSum(it.whReady.history,'IP');
   const whRBqty = matSum(it.whReady.history,'RB_TPU');
   const pengIPqty = matSum(it.pengambilan.history,'IP');
@@ -662,11 +673,23 @@ function renderItemDetail(it,p,ws,ps){
 
     <div class="stage-box">
       <h4>Retur</h4>
-      ${activeReturan(it).length===0 ? `<div style="font-size:12px;color:var(--text2);">Tidak ada retur aktif</div>` : activeReturan(it).map(r=>`
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;">
+        <span class="stat-pill" style="background:#FEF3DE;color:var(--amber-d);">Retur Gudang: ${rt.totalGudang}</span>
+        <span class="stat-pill" style="background:var(--green-bg);color:var(--green-d);">Closingan: ${rt.totalClosing}</span>
+        <span class="stat-pill ${rt.sisa>0?'hasret':'ok'}">Sisa: ${rt.sisa}</span>
+      </div>
+      ${rt.gudangEntries.length===0 && rt.closingEntries.length===0 ? `<div style="font-size:12px;color:var(--text2);">Belum ada retur</div>` : ''}
+      ${rt.gudangEntries.map(r=>`
         <div class="ret-item">
-          <div class="top"><span>Qty ${r.qty} <span style="font-size:10px;padding:1px 5px;border-radius:3px;background:${r.type==='closing'?'#FDEAEA':'#FEF3DE'};color:${r.type==='closing'?'var(--red-d)':'var(--amber-d)'};">${r.type==='closing'?'Closingan':'Retur Gudang'}</span></span><span>${fmtDate(r.date)}</span></div>
+          <div class="top"><span>Qty ${r.qty} <span style="font-size:10px;padding:1px 5px;border-radius:3px;background:#FEF3DE;color:var(--amber-d);">Retur Gudang</span>${r.status==='confirmed'?' <span style="font-size:10.5px;color:var(--green-d);font-weight:600;">✓ diterima WH</span>':''}</span><span>${fmtDate(r.date)}</span></div>
           <div class="meta">${esc(r.reason||'-')} · diajukan ${esc(r.by)}</div>
-          ${p.canConfirmReturan ? `<button class="btn sm ghost" style="margin-top:6px;" data-confirm-ret="${r.id}">Tandai OK (gudang)</button>` : ''}
+          ${p.canConfirmReturan && r.status==='pending' ? `<button class="btn sm ghost" style="margin-top:6px;" data-confirm-ret="${r.id}">Tandai OK (gudang)</button>` : ''}
+        </div>
+      `).join('')}
+      ${rt.closingEntries.map(r=>`
+        <div class="ret-item" style="background:var(--green-bg);border-color:#BEE3C6;">
+          <div class="top" style="color:var(--green-d);"><span>Qty ${r.qty} <span style="font-size:10px;padding:1px 5px;border-radius:3px;background:#fff;color:var(--green-d);">Closingan</span></span><span>${fmtDate(r.date)}</span></div>
+          <div class="meta">${esc(r.reason||'-')} · diajukan ${esc(r.by)}</div>
         </div>
       `).join('')}
       ${p.canAddReturan ? `
@@ -852,6 +875,11 @@ function attachEvents(){
     const typeEl = document.getElementById('ret-type-'+id);
     const type = typeEl ? typeEl.value : 'gudang';
     if(!qty||qty<=0){ showToast('Isi qty.'); return; }
+    if(type==='closing'){
+      const item = state.items.find(it=>it.id===id);
+      const sisa = item ? returanTotals(item).sisa : 0;
+      if(qty > sisa){ showToast(`Qty closingan melebihi sisa retur gudang: ${sisa}`); return; }
+    }
     try{
       state.items = await api(`/items/${id}/returan`, {method:'POST', body: JSON.stringify({qty, reason, type})});
       render();
