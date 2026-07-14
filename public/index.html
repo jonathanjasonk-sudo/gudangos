@@ -185,6 +185,101 @@
   .xfd-urgent{color:var(--red);font-weight:600;}
   .xfd-overdue{color:var(--red-d);font-weight:700;}
   .planning-done-tag{background:var(--green-bg);color:var(--green-d);border-radius:6px;padding:4px 10px;font-size:12.5px;font-weight:600;display:inline-block;margin-top:6px;}
+  ::-webkit-scrollbar{width:5px;height:5px;}
+  ::-webkit-scrollbar-track{background:transparent;}
+  ::-webkit-scrollbar-thumb{background:#CBD5E0;border-radius:3px;}
+  ::-webkit-scrollbar-thumb:hover{background:#94A3B8;}
+
+  /* ── MODERN UI ── */
+  :root{
+    --shadow-sm:0 1px 3px rgba(0,0,0,.07),0 1px 2px rgba(0,0,0,.04);
+    --shadow-md:0 4px 16px rgba(0,0,0,.1),0 2px 4px rgba(0,0,0,.04);
+    --shadow-lg:0 12px 32px rgba(0,0,0,.15),0 4px 8px rgba(0,0,0,.06);
+    --bg:#ECEEF3;
+  }
+  body{background:var(--bg);}
+  /* Login bg */
+  .login-wrap{background:linear-gradient(145deg,#1C2333 0%,#2A3550 60%,#1E2D40 100%);min-height:100vh;}
+  .login-card{border:1px solid rgba(255,255,255,.08);box-shadow:0 24px 64px rgba(0,0,0,.4);}
+  /* Topbar dark gradient */
+  .topbar{
+    background:linear-gradient(135deg,#1C2333 0%,#2A3550 100%);
+    border-radius:16px;padding:14px 22px;
+    border-bottom:none;
+    box-shadow:var(--shadow-md);
+    margin-bottom:24px;
+  }
+  .brand .badge{background:var(--amber);color:#2A1D00;border-radius:10px;font-size:15px;font-weight:800;}
+  .brand h1{color:#fff;font-size:20px;}
+  .brand .sub{color:#8B9DC3;font-size:11px;}
+  .who .tag{background:rgba(245,166,35,.15);color:var(--amber);border:1px solid rgba(245,166,35,.3);}
+  .who button{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);color:rgba(255,255,255,.7);border-radius:8px;}
+  .who button:hover{background:rgba(255,255,255,.15);color:#fff;border-color:rgba(255,255,255,.3);}
+  /* Tabs → pill style */
+  .tabs{background:#fff;padding:5px;border-radius:12px;display:inline-flex;gap:3px;box-shadow:var(--shadow-sm);margin-bottom:22px;}
+  .tab{border-radius:9px;padding:8px 20px;font-size:14px;transition:.15s;}
+  .tab:hover:not(.active){background:#F0F2F7;}
+  .tab.active{background:var(--navy);color:#fff;box-shadow:var(--shadow-sm);}
+  /* Summary cards */
+  .summary-cards{gap:12px;margin-bottom:28px;}
+  .scard{border-radius:14px;padding:18px 20px;border:none;box-shadow:var(--shadow-sm);background:#fff;position:relative;overflow:hidden;transition:box-shadow .15s;}
+  .scard:hover{box-shadow:var(--shadow-md);}
+  .scard::before{content:'';position:absolute;top:0;left:0;width:4px;height:100%;background:var(--amber);border-radius:14px 0 0 14px;}
+  .scard.warn::before{background:var(--red);}
+  .scard.good::before{background:var(--green);}
+  .scard .num{font-size:34px;}
+  /* Pipeline title */
+  .pipeline-title{font-size:11.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text2);padding-left:0;border-left:none;display:flex;align-items:center;gap:8px;margin-bottom:14px;}
+  .pipeline-title::before{content:'';width:3px;height:14px;background:var(--amber);border-radius:2px;display:inline-block;flex-shrink:0;}
+  /* Kanban */
+  .kanban{gap:12px;}
+  .kcol{background:#EBECF0;border-radius:14px;padding:12px;border-top-width:4px;}
+  .kcol-head{padding-bottom:10px;margin-bottom:8px;border-bottom:1px solid rgba(0,0,0,.07);}
+  .kcol-title{font-size:11px;letter-spacing:.08em;font-weight:700;}
+  /* Kanban cards */
+  .kcard{border-radius:11px;padding:12px 14px;box-shadow:var(--shadow-sm);margin-bottom:8px;transition:transform .12s,box-shadow .12s,border-color .12s;border:1px solid rgba(0,0,0,.05);}
+  .kcard:hover{transform:translateY(-3px);box-shadow:var(--shadow-md);border-color:var(--amber);}
+  .kcard-spk{font-size:16px;}
+  .kcard-qty{font-size:11px;margin-bottom:5px;}
+  /* Item cards */
+  .item-card{border-radius:14px;box-shadow:var(--shadow-sm);border:1px solid rgba(0,0,0,.06);margin-bottom:10px;transition:box-shadow .15s;}
+  .item-card:hover{box-shadow:var(--shadow-md);}
+  .item-head{padding:14px 18px;}
+  .item-head .spk{font-size:18px;}
+  .item-body{background:#F5F6FA;}
+  /* Stage boxes */
+  .stage-box{border-radius:11px;border:1px solid #E6E9EF;background:#fff;box-shadow:var(--shadow-sm);padding:14px 16px;}
+  .stage-box h4{font-size:12px;font-weight:700;color:var(--navy);margin-bottom:10px;text-transform:uppercase;letter-spacing:.05em;}
+  /* Buttons */
+  .btn{border-radius:9px;transition:.15s;}
+  .btn.amber{box-shadow:0 2px 8px rgba(245,166,35,.25);}
+  .btn:hover{filter:brightness(1.06);}
+  .btn.danger:hover{box-shadow:0 2px 8px rgba(229,72,77,.3);}
+  /* Stat pills */
+  .stat-pill{border-radius:6px;font-size:11px;padding:4px 9px;}
+  /* Progress gradients */
+  .kprog-track{border-radius:6px;height:6px;}
+  .kprog-fill.gn{background:linear-gradient(90deg,#1E6B33,#2FA84F);}
+  .kprog-fill.am{background:linear-gradient(90deg,#8A5A0A,#F5A623);}
+  .progress-fill{background:linear-gradient(90deg,#1E6B33,#2FA84F);}
+  .progress-fill.partial{background:linear-gradient(90deg,#8A5A0A,#F5A623);}
+  /* Inputs */
+  .dash-searchbar input{background:#fff;box-shadow:var(--shadow-sm);border-color:#DDE1EA;border-radius:10px;}
+  .dash-searchbar input:focus{outline:none;border-color:var(--amber);box-shadow:0 0 0 3px rgba(245,166,35,.12);}
+  .toolbar input[type=text]{background:#fff;box-shadow:var(--shadow-sm);}
+  .mat-form input,.mat-form select,.inline-form input,.inline-form select{background:#F5F6FA;border-color:#DDE1EA;}
+  .mat-form input:focus,.mat-form select:focus,.inline-form input:focus{outline:none;border-color:var(--amber);background:#fff;}
+  /* Selesai */
+  .selesai-card{border-radius:11px;box-shadow:var(--shadow-sm);transition:transform .12s,box-shadow .12s;}
+  .selesai-card:hover{transform:translateY(-2px);box-shadow:var(--shadow-md);}
+  /* Toast */
+  .toast{border-radius:12px;padding:12px 22px;font-size:13.5px;box-shadow:var(--shadow-lg);}
+  /* Hist */
+  .hist-row{padding:4px 0;font-size:12px;}
+  /* Del btn */
+  .del-spk-btn{transition:.15s;}
+  /* Empty */
+  .empty{font-size:14px;padding:60px 20px;}
 </style>
 </head>
 <body>
@@ -310,7 +405,7 @@ function renderMain(){
   return `
   <div class="topbar">
     <div class="brand">
-      <div class="badge">仓</div>
+      <div class="badge">WH</div>
       <div><h1>Dashboard Gudang</h1><div class="sub">SPK · XFD · QTY tracking</div></div>
     </div>
     <div class="who">
