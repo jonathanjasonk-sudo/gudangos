@@ -62,7 +62,11 @@ async function initDb() {
   `);
   await pool.query(`ALTER TABLE returan ADD COLUMN IF NOT EXISTS type TEXT DEFAULT 'gudang'`);
   await pool.query(`ALTER TABLE wh_ready_history ADD COLUMN IF NOT EXISTS pic TEXT`);
+  await pool.query(`ALTER TABLE wh_ready_history ADD COLUMN IF NOT EXISTS material TEXT DEFAULT 'IP'`);
+  await pool.query(`ALTER TABLE wh_ready_history ADD COLUMN IF NOT EXISTS notes TEXT`);
   await pool.query(`ALTER TABLE pengambilan_history ADD COLUMN IF NOT EXISTS pic TEXT`);
+  await pool.query(`ALTER TABLE pengambilan_history ADD COLUMN IF NOT EXISTS material TEXT DEFAULT 'IP'`);
+  await pool.query(`ALTER TABLE pengambilan_history ADD COLUMN IF NOT EXISTS notes TEXT`);
   console.log('Database siap.');
 }
 
@@ -139,8 +143,8 @@ async function getFullItems() {
     createdAt: it.created_at,
     createdBy: it.created_by,
     planning: { done: it.planning_done, date: it.planning_date },
-    whReady: { history: wh.filter(h => h.item_id === it.id).map(h => ({ qty: h.qty, date: h.date, by: h.by_role, pic: h.pic })) },
-    pengambilan: { history: peng.filter(h => h.item_id === it.id).map(h => ({ qty: h.qty, date: h.date, by: h.by_role, pic: h.pic })) },
+    whReady: { history: wh.filter(h => h.item_id === it.id).map(h => ({ qty: h.qty, date: h.date, by: h.by_role, pic: h.pic, material: h.material || 'IP', notes: h.notes })) },
+    pengambilan: { history: peng.filter(h => h.item_id === it.id).map(h => ({ qty: h.qty, date: h.date, by: h.by_role, pic: h.pic, material: h.material || 'IP', notes: h.notes })) },
     returan: ret.filter(r => r.item_id === it.id).map(r => ({
       id: r.id, qty: r.qty, reason: r.reason, date: r.date, by: r.by_role,
       type: r.type || 'gudang',
@@ -203,16 +207,18 @@ app.post('/api/items/:id/planning', requirePerm('planning'), async (req, res) =>
 });
 
 app.post('/api/items/:id/wh-ready', requirePerm('whReady'), async (req, res) => {
-  const { qty, date, pic } = req.body || {};
+  const { qty, date, pic, material, notes } = req.body || {};
   if (!qty || qty <= 0 || !date) return res.status(400).json({ error: 'Qty dan tanggal wajib diisi.' });
-  await pool.query('INSERT INTO wh_ready_history (item_id, qty, date, by_role, pic) VALUES ($1,$2,$3,$4,$5)', [req.params.id, qty, date, req.role, pic || null]);
+  const validMat = material === 'RB_TPU' ? 'RB_TPU' : 'IP';
+  await pool.query('INSERT INTO wh_ready_history (item_id, qty, date, by_role, pic, material, notes) VALUES ($1,$2,$3,$4,$5,$6,$7)', [req.params.id, qty, date, req.role, pic || null, validMat, notes || null]);
   res.json(await getFullItems());
 });
 
 app.post('/api/items/:id/pengambilan', requirePerm('pengambilan'), async (req, res) => {
-  const { qty, date, pic } = req.body || {};
+  const { qty, date, pic, material, notes } = req.body || {};
   if (!qty || qty <= 0 || !date) return res.status(400).json({ error: 'Qty dan tanggal wajib diisi.' });
-  await pool.query('INSERT INTO pengambilan_history (item_id, qty, date, by_role, pic) VALUES ($1,$2,$3,$4,$5)', [req.params.id, qty, date, req.role, pic || null]);
+  const validMat = material === 'RB_TPU' ? 'RB_TPU' : 'IP';
+  await pool.query('INSERT INTO pengambilan_history (item_id, qty, date, by_role, pic, material, notes) VALUES ($1,$2,$3,$4,$5,$6,$7)', [req.params.id, qty, date, req.role, pic || null, validMat, notes || null]);
   res.json(await getFullItems());
 });
 

@@ -165,6 +165,21 @@
   .selesai-checks{display:flex;gap:5px;flex-wrap:wrap;}
   .selesai-ok{font-size:11px;background:var(--green-bg);color:var(--green-d);padding:2px 6px;border-radius:4px;font-weight:600;}
   .selesai-who{font-size:11px;color:var(--text2);margin-top:3px;}
+  /* Material badges & forms */
+  .mat-badge{padding:2px 7px;border-radius:4px;font-size:11.5px;font-weight:700;white-space:nowrap;}
+  .mat-badge.ip{background:#EEF2FF;color:#3730A3;}
+  .mat-badge.rb{background:#FFF7ED;color:#9A3412;}
+  .mat-prog-row{display:flex;align-items:center;gap:6px;margin-bottom:6px;}
+  .mat-form{margin-top:8px;}
+  .mat-row{display:flex;gap:5px;align-items:center;margin-bottom:5px;flex-wrap:wrap;}
+  .mat-notes-row{display:flex;gap:5px;align-items:center;margin-top:4px;}
+  .mat-form input[type=number]{width:70px;padding:6px 8px;border:1px solid var(--line);border-radius:6px;font-size:13px;flex:0 0 70px;}
+  .mat-form input[type=date]{width:125px;padding:6px 8px;border:1px solid var(--line);border-radius:6px;font-size:13px;flex:0 0 125px;}
+  .mat-form input[type=text]{flex:1;min-width:70px;padding:6px 8px;border:1px solid var(--line);border-radius:6px;font-size:13px;}
+  .hist-mat{font-size:10px;font-weight:700;padding:1px 5px;border-radius:3px;margin-right:3px;}
+  .hist-mat.ip{background:#EEF2FF;color:#3730A3;}
+  .hist-mat.rb{background:#FFF7ED;color:#9A3412;}
+  .hist-notes{font-size:11px;color:var(--text2);font-style:italic;}
   .planning-done-tag{background:var(--green-bg);color:var(--green-d);border-radius:6px;padding:4px 10px;font-size:12.5px;font-weight:600;display:inline-block;margin-top:6px;}
 </style>
 </head>
@@ -230,6 +245,10 @@ function stageStatus(stage, qtyTotal){
   if(sum <= 0) return 'pending';
   if(sum >= qtyTotal) return 'ok';
   return 'partial';
+}
+function matSum(history, mat){
+  if(mat==='IP') return history.filter(h=>!h.material||h.material==='IP').reduce((a,h)=>a+Number(h.qty),0);
+  return history.filter(h=>h.material===mat).reduce((a,h)=>a+Number(h.qty),0);
 }
 function activeReturan(item){ return item.returan.filter(r=>r.status==='pending'); }
 
@@ -307,15 +326,20 @@ function renderDashboard(){
   });
   const planning=[], gudang=[], pengambilan=[], retur=[], selesai=[];
   filtered.forEach(it=>{
-    const ws = stageStatus(it.whReady, it.qty);
-    const ps = stageStatus(it.pengambilan, it.qty);
+    const ipWhSum = matSum(it.whReady.history,'IP');
+    const rbWhSum = matSum(it.whReady.history,'RB_TPU');
+    const ipPengSum = matSum(it.pengambilan.history,'IP');
+    const rbPengSum = matSum(it.pengambilan.history,'RB_TPU');
+    const isSelesai = ipPengSum>=it.qty && rbPengSum>=it.qty;
+    const hasWh = it.whReady.history.length>0;
+    const hasPeng = it.pengambilan.history.length>0;
     const ar = activeReturan(it);
     if(ar.length>0) retur.push(it);
-    else if(ps==='ok') selesai.push(it);
-    else if(ws==='pending' && ps==='pending') planning.push(it);
+    else if(isSelesai) selesai.push(it);
+    else if(!hasWh && !hasPeng) planning.push(it);
     else {
-      if(ws!=='pending') gudang.push(it);
-      if(ps!=='pending') pengambilan.push(it);
+      if(hasWh) gudang.push(it);
+      if(hasPeng) pengambilan.push(it);
     }
   });
   if(total===0) return '<div class="empty">Belum ada data SPK. Tambahkan lewat tab "Data SPK".</div>';
@@ -325,16 +349,16 @@ function renderDashboard(){
   </div>
   <div class="summary-cards">
     <div class="scard"><div class="num">${total}</div><div class="lbl">Total SPK</div></div>
-    <div class="scard"><div class="num" style="color:var(--green);">${selesai.length}</div><div class="lbl">Selesai \u2713<br>領料 OK</div></div>
-    <div class="scard ${retActive>0?'warn':''}"><div class="num">${retActive}</div><div class="lbl">Retur 退料<br>Aktif</div></div>
+    <div class="scard"><div class="num" style="color:var(--green);">${selesai.length}</div><div class="lbl">Selesai ✓<br>Ambil OK</div></div>
+    <div class="scard ${retActive>0?'warn':''}"><div class="num">${retActive}</div><div class="lbl">Retur<br>Aktif</div></div>
     <div class="scard ${overdueCount>0?'warn':''}"><div class="num">${overdueCount}</div><div class="lbl">XFD Lewat<br>Belum OK</div></div>
   </div>
   <div class="pipeline-title">Pipeline Aktif${q?` \u2014 "${esc(q)}"`:''}</div>
   <div class="kanban">
-    ${renderKanbanCol('col-antrian','Planning','計劃',planning,'planning')}
-    ${renderKanbanCol('col-whparsial','Gudang','備料',gudang,'gudang')}
-    ${renderKanbanCol('col-whok','Pengambilan','領料',pengambilan,'pengambilan')}
-    ${renderKanbanCol('col-selesai','Retur','退料',retur,'retur')}
+    ${renderKanbanCol('col-antrian','Planning','Antrian SPK',planning,'planning')}
+    ${renderKanbanCol('col-whparsial','Gudang','Persiapan Bahan',gudang,'gudang')}
+    ${renderKanbanCol('col-whok','Pengambilan','Ambil Bahan',pengambilan,'pengambilan')}
+    ${renderKanbanCol('col-selesai','Retur','Dikembalikan',retur,'retur')}
   </div>
   ${selesai.length>0?`
   <div class="pipeline-title" style="margin-top:24px;border-left-color:var(--green);">Selesai / History (${selesai.length})</div>
@@ -374,7 +398,7 @@ function renderData(p){
 
 function renderBulkForm(){
   const d = todayStr();
-  const stageOpts = `<option value="planning">Planning 計劃</option><option value="gudang">Gudang 備料</option>`;
+  const stageOpts = `<option value="planning">Planning</option><option value="gudang">Gudang (WH Siap)</option>`;
   const rows = [0,1,2].map(i=>`
     <tr>
       <td class="col-no">${i+1}</td>
@@ -418,24 +442,26 @@ function renderKanbanCol(cls, title, zh, items, stage){
 }
 
 function renderKanbanCard(it, stage){
-  const whSum = stageSum(it.whReady);
-  const pengSum = stageSum(it.pengambilan);
-  const ws = stageStatus(it.whReady, it.qty);
+  const whIPqty = matSum(it.whReady.history,'IP');
+  const whRBqty = matSum(it.whReady.history,'RB_TPU');
+  const pengIPqty = matSum(it.pengambilan.history,'IP');
+  const pengRBqty = matSum(it.pengambilan.history,'RB_TPU');
   const ps = stageStatus(it.pengambilan, it.qty);
   const isOv = dayjs(it.xfd).isBefore(dayjs(),'day') && ps!=='ok';
   const ar = activeReturan(it);
-  let prog = '';
+  function mp(label,qty,total,cls){
+    const pct=Math.min(100,total>0?qty/total*100:0);
+    return `<div class="kprog"><div class="kprog-lbl"><span><span class="mat-badge ${cls}" style="font-size:9px;padding:0 4px;">${label}</span></span><span>${qty}/${total}</span></div><div class="kprog-track"><div class="kprog-fill ${qty>=total?'gn':'am'}" style="width:${pct}%"></div></div></div>`;
+  }
+  let prog='';
   if(stage==='gudang'){
-    const pct = Math.min(100, whSum/it.qty*100);
-    prog = `<div class="kprog"><div class="kprog-lbl"><span>備料${ws==='ok'?' ✓':''}</span><span>${whSum}/${it.qty}</span></div><div class="kprog-track"><div class="kprog-fill ${ws==='ok'?'gn':'am'}" style="width:${pct}%"></div></div></div>`;
+    prog = mp('IP',whIPqty,it.qty,'ip') + mp('RB/TPU',whRBqty,it.qty,'rb');
   } else if(stage==='pengambilan'){
-    if(whSum>0) prog += `<div class="kprog"><div class="kprog-lbl"><span>備料${ws==='ok'?' ✓':''}</span><span>${whSum}/${it.qty}</span></div><div class="kprog-track"><div class="kprog-fill ${ws==='ok'?'gn':'am'}" style="width:${Math.min(100,whSum/it.qty*100)}%"></div></div></div>`;
-    const pct = Math.min(100, pengSum/it.qty*100);
-    prog += `<div class="kprog" style="margin-top:3px;"><div class="kprog-lbl"><span>領料${ps==='ok'?' ✓':''}</span><span>${pengSum}/${it.qty}</span></div><div class="kprog-track"><div class="kprog-fill ${ps==='ok'?'gn':'am'}" style="width:${pct}%"></div></div></div>`;
+    prog = mp('IP',pengIPqty,it.qty,'ip') + mp('RB/TPU',pengRBqty,it.qty,'rb');
   } else if(stage==='retur'){
-    const nGudang = ar.filter(r=>r.type!=='closing').length;
-    const nClosing = ar.filter(r=>r.type==='closing').length;
-    prog = `<div style="font-size:11px;margin-top:4px;display:flex;gap:4px;flex-wrap:wrap;">${nGudang>0?`<span style="background:#FEF3DE;color:var(--amber-d);padding:1px 6px;border-radius:4px;">Retur Gudang: ${nGudang}</span>`:''} ${nClosing>0?`<span style="background:var(--red-bg);color:var(--red-d);padding:1px 6px;border-radius:4px;">Closingan: ${nClosing}</span>`:''}</div>`;
+    const nG=ar.filter(r=>r.type!=='closing').length;
+    const nC=ar.filter(r=>r.type==='closing').length;
+    prog=`<div style="font-size:11px;margin-top:4px;display:flex;gap:4px;flex-wrap:wrap;">${nG>0?`<span style="background:#FEF3DE;color:var(--amber-d);padding:1px 6px;border-radius:4px;">Retur Gudang: ${nG}</span>`:''} ${nC>0?`<span style="background:var(--red-bg);color:var(--red-d);padding:1px 6px;border-radius:4px;">Closingan: ${nC}</span>`:''}</div>`;
   }
   return `<div class="kcard" data-goto="${it.id}">
     <div class="kcard-spk">${esc(it.spk)}</div>
@@ -460,10 +486,10 @@ function renderItemCard(it, p){
       </div>
       <div style="display:flex;align-items:center;gap:8px;">
         <div class="stages-mini">
-          <span class="stat-pill ok">計劃 OK</span>
-          <span class="stat-pill ${ws}">備料 ${ws==='ok'?'OK':ws==='partial'?'Parsial':'-'}</span>
-          <span class="stat-pill ${ps}">領料 ${ps==='ok'?'OK':ps==='partial'?'Parsial':'-'}</span>
-          ${ar.length>0 ? `<span class="stat-pill hasret">退料 ${ar.length}</span>` : ''}
+          <span class="stat-pill ok">Planning ✓</span>
+          <span class="stat-pill ${ws}">WH ${ws==='ok'?'OK':ws==='partial'?'Parsial':'-'}</span>
+          <span class="stat-pill ${ps}">Ambil ${ps==='ok'?'OK':ps==='partial'?'Parsial':'-'}</span>
+          ${ar.length>0 ? `<span class="stat-pill hasret">Retur ${ar.length}</span>` : ''}
         </div>
         ${p.canDeleteItem ? `<button class="del-spk-btn" data-del-item="${it.id}" title="Hapus SPK">🗑️ Hapus</button>` : ''}
       </div>
@@ -475,45 +501,62 @@ function renderItemCard(it, p){
 }
 
 function renderItemDetail(it,p,ws,ps){
-  const whSum = stageSum(it.whReady);
-  const pengSum = stageSum(it.pengambilan);
+  const whIPqty = matSum(it.whReady.history,'IP');
+  const whRBqty = matSum(it.whReady.history,'RB_TPU');
+  const pengIPqty = matSum(it.pengambilan.history,'IP');
+  const pengRBqty = matSum(it.pengambilan.history,'RB_TPU');
+  function mpBar(qty,total){
+    const pct=Math.min(100,total>0?qty/total*100:0);
+    return `<div style="font-size:11px;color:var(--text2);text-align:right;margin-bottom:2px;">${qty} / ${total}${qty>=total?' ✓':` · kurang ${total-qty}`}</div><div class="kprog-track"><div class="kprog-fill ${qty>=total?'gn':'am'}" style="width:${pct}%"></div></div>`;
+  }
+  function histRow(h){
+    return `<div class="hist-row"><span><span class="hist-mat ${h.material==='RB_TPU'?'rb':'ip'}">${h.material==='RB_TPU'?'RB/TPU':'IP'}</span>${fmtDate(h.date)} · ${esc(h.pic||h.by)}${h.notes?` <span class="hist-notes">"${esc(h.notes)}"</span>`:''}</span><span>+${h.qty}</span></div>`;
+  }
   return `
   <div class="stage-grid">
     <div class="stage-box">
-      <h4>Planning <span class="zh">計劃</span></h4>
+      <h4>Planning</h4>
       <div class="planning-done-tag">✓ Selesai · ${fmtDate(it.planning.date || it.createdAt)}</div>
     </div>
 
     <div class="stage-box">
-      <h4>WH Ready <span class="zh">備料</span></h4>
-      <div class="progress-track"><div class="progress-fill ${ws==='partial'?'partial':''}" style="width:${Math.min(100,whSum/it.qty*100)}%"></div></div>
-      <div style="font-size:12px;color:var(--text2);">${whSum} / ${it.qty}</div>
-      ${it.whReady.history.map(h=>`<div class="hist-row"><span>${fmtDate(h.date)} · ${esc(h.pic||h.by)}</span><span>+${h.qty}</span></div>`).join('')}
-      ${p.canEditWhReady && ws!=='ok' ? `
-      <div class="inline-form">
-        <input type="number" min="1" placeholder="qty" id="wh-qty-${it.id}" />
-        <input type="date" value="${todayStr()}" id="wh-date-${it.id}" />
-        <input type="text" placeholder="PIC" id="wh-pic-${it.id}" />
-        <button class="btn sm" data-add-wh="${it.id}">+</button>
-      </div>` : (!p.canEditWhReady ? `<div class="locked">Hanya PPIC/WH</div>` : '')}
+      <h4>WH Siap (Persiapan Gudang)</h4>
+      <div class="mat-prog-row"><span class="mat-badge ip">IP</span><div style="flex:1;min-width:0;">${mpBar(whIPqty,it.qty)}</div></div>
+      <div class="mat-prog-row" style="margin-top:4px;"><span class="mat-badge rb">RB/TPU</span><div style="flex:1;min-width:0;">${mpBar(whRBqty,it.qty)}</div></div>
+      <div style="margin-top:6px;">${it.whReady.history.length>0 ? it.whReady.history.map(h=>histRow(h)).join('') : '<div style="font-size:12px;color:var(--text2);">Belum ada data</div>'}</div>
+      ${p.canEditWhReady ? `
+      <div class="mat-form">
+        <div class="mat-row">
+          <select id="wh-mat-${it.id}" style="padding:6px 8px;border:1px solid var(--line);border-radius:6px;font-size:12.5px;flex:0 0 auto;"><option value="IP">IP</option><option value="RB_TPU">RB/TPU</option></select>
+          <input type="number" min="1" placeholder="qty" id="wh-qty-${it.id}" />
+          <input type="date" value="${todayStr()}" id="wh-date-${it.id}" />
+          <input type="text" placeholder="PIC" id="wh-pic-${it.id}" />
+          <button class="btn sm" data-add-wh="${it.id}">+</button>
+        </div>
+        <div class="mat-notes-row"><input type="text" placeholder="Notes (opsional)" id="wh-notes-${it.id}" /></div>
+      </div>` : `<div class="locked">Hanya PPIC/WH</div>`}
     </div>
 
     <div class="stage-box">
-      <h4>Pengambilan <span class="zh">領料</span></h4>
-      <div class="progress-track"><div class="progress-fill ${ps==='partial'?'partial':''}" style="width:${Math.min(100,pengSum/it.qty*100)}%"></div></div>
-      <div style="font-size:12px;color:var(--text2);">${pengSum} / ${it.qty}</div>
-      ${it.pengambilan.history.map(h=>`<div class="hist-row"><span>${fmtDate(h.date)} · ${esc(h.pic||h.by)}</span><span>+${h.qty}</span></div>`).join('')}
-      ${p.canEditPengambilan && ps!=='ok' ? `
-      <div class="inline-form">
-        <input type="number" min="1" placeholder="qty" id="peng-qty-${it.id}" />
-        <input type="date" value="${todayStr()}" id="peng-date-${it.id}" />
-        <input type="text" placeholder="PIC" id="peng-pic-${it.id}" />
-        <button class="btn sm" data-add-peng="${it.id}">+</button>
-      </div>` : (!p.canEditPengambilan ? `<div class="locked">Hanya PPIC/SF</div>` : '')}
+      <h4>Pengambilan (Ambil Bahan)</h4>
+      <div class="mat-prog-row"><span class="mat-badge ip">IP</span><div style="flex:1;min-width:0;">${mpBar(pengIPqty,it.qty)}</div></div>
+      <div class="mat-prog-row" style="margin-top:4px;"><span class="mat-badge rb">RB/TPU</span><div style="flex:1;min-width:0;">${mpBar(pengRBqty,it.qty)}</div></div>
+      <div style="margin-top:6px;">${it.pengambilan.history.length>0 ? it.pengambilan.history.map(h=>histRow(h)).join('') : '<div style="font-size:12px;color:var(--text2);">Belum ada data</div>'}</div>
+      ${p.canEditPengambilan ? `
+      <div class="mat-form">
+        <div class="mat-row">
+          <select id="peng-mat-${it.id}" style="padding:6px 8px;border:1px solid var(--line);border-radius:6px;font-size:12.5px;flex:0 0 auto;"><option value="IP">IP</option><option value="RB_TPU">RB/TPU</option></select>
+          <input type="number" min="1" placeholder="qty" id="peng-qty-${it.id}" />
+          <input type="date" value="${todayStr()}" id="peng-date-${it.id}" />
+          <input type="text" placeholder="PIC" id="peng-pic-${it.id}" />
+          <button class="btn sm" data-add-peng="${it.id}">+</button>
+        </div>
+        <div class="mat-notes-row"><input type="text" placeholder="Notes (opsional)" id="peng-notes-${it.id}" /></div>
+      </div>` : `<div class="locked">Hanya PPIC/SF</div>`}
     </div>
 
     <div class="stage-box">
-      <h4>Retur <span class="zh">退料</span></h4>
+      <h4>Retur</h4>
       ${activeReturan(it).length===0 ? `<div style="font-size:12px;color:var(--text2);">Tidak ada retur aktif</div>` : activeReturan(it).map(r=>`
         <div class="ret-item">
           <div class="top"><span>Qty ${r.qty} <span style="font-size:10px;padding:1px 5px;border-radius:3px;background:${r.type==='closing'?'#FDEAEA':'#FEF3DE'};color:${r.type==='closing'?'var(--red-d)':'var(--amber-d)'};">${r.type==='closing'?'Closingan':'Retur Gudang'}</span></span><span>${fmtDate(r.date)}</span></div>
@@ -603,7 +646,7 @@ function attachEvents(){
       const tbody = document.getElementById('bulkTbody');
       const idx = tbody.rows.length;
       const tr = document.createElement('tr');
-      tr.innerHTML = `<td class="col-no">${idx+1}</td><td><input type="text" class="bulk-spk" placeholder="SPK-001" /></td><td class="col-xfd"><input type="date" class="bulk-xfd" value="${todayStr()}" /></td><td class="col-qty"><input type="number" class="bulk-qty" min="1" placeholder="1000" /></td><td class="col-stage"><select class="bulk-stage"><option value="planning">Planning 計劃</option><option value="gudang">Gudang 備料</option></select></td><td class="col-del"><button class="del-row-btn" type="button">✕</button></td>`;
+      tr.innerHTML = `<td class="col-no">${idx+1}</td><td><input type="text" class="bulk-spk" placeholder="SPK-001" /></td><td class="col-xfd"><input type="date" class="bulk-xfd" value="${todayStr()}" /></td><td class="col-qty"><input type="number" class="bulk-qty" min="1" placeholder="1000" /></td><td class="col-stage"><select class="bulk-stage"><option value="planning">Planning</option><option value="gudang">Gudang (WH Siap)</option></select></td><td class="col-del"><button class="del-row-btn" type="button">✕</button></td>`;
       tr.querySelector('.del-row-btn').onclick = () => delBulkRow(tr);
       tbody.appendChild(tr);
       tr.querySelector('.bulk-spk').focus();
@@ -655,9 +698,13 @@ function attachEvents(){
     const date = document.getElementById('wh-date-'+id).value;
     const picEl = document.getElementById('wh-pic-'+id);
     const pic = picEl ? picEl.value.trim() : '';
+    const matEl = document.getElementById('wh-mat-'+id);
+    const material = matEl ? matEl.value : 'IP';
+    const notesEl = document.getElementById('wh-notes-'+id);
+    const notes = notesEl ? notesEl.value.trim() : '';
     if(!qty||qty<=0){ showToast('Isi qty.'); return; }
     try{
-      state.items = await api(`/items/${id}/wh-ready`, {method:'POST', body: JSON.stringify({qty, date, pic})});
+      state.items = await api(`/items/${id}/wh-ready`, {method:'POST', body: JSON.stringify({qty, date, pic, material, notes})});
       render();
     }catch(e){ showToast(e.message); }
   };
@@ -669,9 +716,13 @@ function attachEvents(){
     const date = document.getElementById('peng-date-'+id).value;
     const picEl = document.getElementById('peng-pic-'+id);
     const pic = picEl ? picEl.value.trim() : '';
+    const matEl = document.getElementById('peng-mat-'+id);
+    const material = matEl ? matEl.value : 'IP';
+    const notesEl = document.getElementById('peng-notes-'+id);
+    const notes = notesEl ? notesEl.value.trim() : '';
     if(!qty||qty<=0){ showToast('Isi qty.'); return; }
     try{
-      state.items = await api(`/items/${id}/pengambilan`, {method:'POST', body: JSON.stringify({qty, date, pic})});
+      state.items = await api(`/items/${id}/pengambilan`, {method:'POST', body: JSON.stringify({qty, date, pic, material, notes})});
       render();
     }catch(e){ showToast(e.message); }
   };
