@@ -137,6 +137,7 @@
   .dashboard-mat-fill{height:100%;border-radius:3px;}
   .dashboard-mat-fill.ready{background:var(--amber);}
   .dashboard-mat-fill.taken{background:#2563EB;}
+  .dashboard-mat-fill.full{background:var(--green);}
   .kprog{margin-top:5px;}
   .kprog-lbl{font-size:11px;color:var(--text2);display:flex;justify-content:space-between;margin-bottom:2px;}
   .kprog-track{background:#EDEDEF;border-radius:4px;height:5px;overflow:hidden;}
@@ -469,8 +470,8 @@ function renderDashboardMaterialProgress(it){
     const takenPct=total?Math.min(100,taken/total*100):0;
     return `<div class="dashboard-mat-row">
       <span class="dashboard-mat-name">${esc(material)}</span>
-      <div class="dashboard-mat-cell"><span>${ready}/${total}</span><div class="dashboard-mat-track"><div class="dashboard-mat-fill ready" style="width:${readyPct}%"></div></div></div>
-      <div class="dashboard-mat-cell"><span>${taken}/${total}</span><div class="dashboard-mat-track"><div class="dashboard-mat-fill taken" style="width:${takenPct}%"></div></div></div>
+      <div class="dashboard-mat-cell"><span>${ready}/${total}</span><div class="dashboard-mat-track"><div class="dashboard-mat-fill ${ready>=total?'full':'ready'}" style="width:${readyPct}%"></div></div></div>
+      <div class="dashboard-mat-cell"><span>${taken}/${total}</span><div class="dashboard-mat-track"><div class="dashboard-mat-fill ${taken>=total?'full':'taken'}" style="width:${takenPct}%"></div></div></div>
     </div>`;
   }).join('');
   return `<div class="dashboard-mat-list"><div class="dashboard-mat-heading"><span>Material</span><span>Ready</span><span>Taken</span></div>${rows}</div>`;
