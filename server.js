@@ -3,6 +3,7 @@ const cors = require('cors');
 const { Pool } = require('pg');
 const path = require('path');
 const crypto = require('crypto');
+const buildExportWorkbook = require('./exportWorkbook');
 
 const app = express();
 app.use(cors());
@@ -164,6 +165,19 @@ app.get('/api/items', async (req, res) => {
   } catch (e) {
     console.error(e);
     res.status(500).json({ error: 'Gagal mengambil data.' });
+  }
+});
+
+app.get('/api/export.xlsx', async (req, res) => {
+  try {
+    const workbook = await buildExportWorkbook(await getFullItems());
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename="Marketing-System.xlsx"');
+    await workbook.xlsx.write(res);
+    res.end();
+  } catch (e) {
+    console.error(e);
+    if (!res.headersSent) res.status(500).json({ error: 'Gagal membuat file Excel.' });
   }
 });
 

@@ -31,11 +31,13 @@ Password default: Produksi `prod123`, Marketing `marketing123`, dan Master `mast
 Railway akan memberi Anda URL publik (misalnya `namaservis.up.railway.app`). Buka URL itu, dan aplikasi sudah bisa dipakai oleh siapa saja yang Anda beri linknya, dengan data tersimpan permanen di database.
 
 ## Alur dan akses
-- **Request Produksi** — akun Produksi mengisi SPK, Customer, XFD, dan QTY; Master juga dapat membuat atau menghapus request.
-- **Marketing Ready** — akun Marketing mencatat material yang siap, per material dan qty.
-- **Taken** — akun Marketing mencatat material yang diambil, per material dan qty.
+- **Request Produksi** — akun Produksi mengisi SPK, Customer, XFD, dan QTY; request tampil sebelum pencatatan Ready/Taken dimulai.
+- **Marketing Ready** — akun Marketing mencatat material yang siap, per material dan qty; tetap terlihat selama Taken belum lengkap.
+- **Taken** — akun Marketing mencatat material yang diambil; request selesai setelah semua 4 material mencapai QTY.
+- **History Taken** — mencatat Customer, material, dan tanggal saat seluruh material selesai diambil.
 - **Master** — akses penuh ke request, Marketing Ready, dan Taken.
 - Material yang dicatat: Shoe Box, Size Label, Karton Label, dan Marking.
+- Export Excel menyediakan sheet `REQ PRODUKSI`, `MARKETING READY`, dan `TAKEN`, termasuk qty serta balance tiap material.
 
 ## Menjalankan di komputer sendiri (opsional, untuk uji coba sebelum deploy)
 Butuh Node.js 18+ dan PostgreSQL terpasang.

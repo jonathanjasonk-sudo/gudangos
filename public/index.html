@@ -138,6 +138,11 @@
   .dashboard-mat-fill.ready{background:var(--amber);}
   .dashboard-mat-fill.taken{background:#2563EB;}
   .dashboard-mat-fill.full{background:var(--green);}
+  .history-table-wrap{overflow-x:auto;background:#fff;border:1px solid var(--line);border-radius:10px;}
+  .history-table{width:100%;border-collapse:collapse;font-size:12px;}
+  .history-table th,.history-table td{text-align:left;padding:9px 11px;border-bottom:1px solid var(--line);vertical-align:top;}
+  .history-table th{color:var(--text2);font-size:10px;text-transform:uppercase;}
+  .history-table tr:last-child td{border-bottom:none;}
   .kprog{margin-top:5px;}
   .kprog-lbl{font-size:11px;color:var(--text2);display:flex;justify-content:space-between;margin-bottom:2px;}
   .kprog-track{background:#EDEDEF;border-radius:4px;height:5px;overflow:hidden;}
@@ -367,6 +372,20 @@ function matSum(history, mat){
   if(mat==='IP') return history.filter(h=>!h.material||h.material==='IP').reduce((a,h)=>a+Number(h.qty),0);
   return history.filter(h=>h.material===mat).reduce((a,h)=>a+Number(h.qty),0);
 }
+function materialsComplete(history, qty){
+  return MATERIALS.every(material=>matSum(history,material)>=Number(qty));
+}
+function hasMaterialProgress(history){
+  return MATERIALS.some(material=>matSum(history,material)>0);
+}
+function takenCompletionDate(item){
+  const totals=Object.fromEntries(MATERIALS.map(material=>[material,0]));
+  for(const entry of item.pengambilan.history){
+    if(MATERIALS.includes(entry.material)) totals[entry.material]+=Number(entry.qty);
+    if(MATERIALS.every(material=>totals[material]>=Number(item.qty))) return entry.date;
+  }
+  return null;
+}
 function activeReturan(item){ return item.returan.filter(r=>r.status==='pending'); }
 // Menghitung total retur gudang vs closingan, dan sisa yang belum ditutup.
 // Contoh: retur gudang 4 pasang, closingan 3 pasang -> sisa 1 pasang masih retur aktif.
@@ -440,9 +459,9 @@ function renderMain(){
   </div>
   <div class="tabs">
     <div class="tab ${state.tab==='dashboard'?'active':''}" data-tab="dashboard">Dashboard</div>
-    <div class="tab ${state.tab==='request'?'active':''}" data-tab="request">Request Produksi <b>${state.items.filter(it=>!it.whReady.history.length&&!it.pengambilan.history.length).length}</b></div>
-    <div class="tab ${state.tab==='ready'?'active':''}" data-tab="ready">Marketing Ready <b>${state.items.filter(it=>it.whReady.history.length>0&&!it.pengambilan.history.length).length}</b></div>
-    <div class="tab ${state.tab==='taken'?'active':''}" data-tab="taken">Taken <b>${state.items.filter(it=>it.pengambilan.history.length>0).length}</b></div>
+    <div class="tab ${state.tab==='request'?'active':''}" data-tab="request">Request Produksi <b>${state.items.filter(it=>!hasMaterialProgress(it.whReady.history)&&!hasMaterialProgress(it.pengambilan.history)).length}</b></div>
+    <div class="tab ${state.tab==='ready'?'active':''}" data-tab="ready">Marketing Ready <b>${state.items.filter(it=>hasMaterialProgress(it.whReady.history)&&!materialsComplete(it.pengambilan.history,it.qty)).length}</b></div>
+    <div class="tab ${state.tab==='taken'?'active':''}" data-tab="taken">Taken <b>${state.items.filter(it=>hasMaterialProgress(it.pengambilan.history)&&!materialsComplete(it.pengambilan.history,it.qty)).length}</b></div>
   </div>
   ${state.loading ? '<div class="empty">Memuat data...</div>' : (state.tab==='dashboard' ? renderDashboard(p) : renderStage(state.tab,p))}
   `;
@@ -452,7 +471,7 @@ function renderStage(stage,p){
   const titles={request:'Request Produksi',ready:'Marketing Ready',taken:'Taken'};
   const query=state.search.toLowerCase().trim();
   const items=state.items.filter(it=>{
-    const matches=stage==='request'?!it.whReady.history.length&&!it.pengambilan.history.length:stage==='ready'?it.whReady.history.length>0&&!it.pengambilan.history.length:it.pengambilan.history.length>0;
+    const matches=stage==='request'?!hasMaterialProgress(it.whReady.history)&&!hasMaterialProgress(it.pengambilan.history):stage==='ready'?hasMaterialProgress(it.whReady.history)&&!materialsComplete(it.pengambilan.history,it.qty):hasMaterialProgress(it.pengambilan.history)&&!materialsComplete(it.pengambilan.history,it.qty);
     return matches&&(!query||it.spk.toLowerCase().includes(query));
   });
   return `<div class="toolbar"><input type="text" id="searchBox" placeholder="Cari SPK..." value="${esc(state.search)}" />${stage==='request'&&p.canAddItem?`<button class="btn amber" id="toggleAdd">${state.addOpen?'Tutup':'+ Request Produksi'}</button>`:''}</div>
@@ -481,12 +500,13 @@ function renderDashboard(){
   const query=(state.dashSearch||'').toLowerCase().trim();
   const items=state.items.filter(it=>!query||it.spk.toLowerCase().includes(query));
   const stages=[
-    {key:'request',title:'Request Produksi',cls:'col-antrian',items:items.filter(it=>!it.whReady.history.length&&!it.pengambilan.history.length)},
-    {key:'ready',title:'Marketing Ready',cls:'col-whparsial',items:items.filter(it=>it.whReady.history.length>0&&!it.pengambilan.history.length)},
-    {key:'taken',title:'Taken',cls:'col-whok',items:items.filter(it=>it.pengambilan.history.length>0)}
+    {key:'request',title:'Request Produksi',cls:'col-antrian',items:items.filter(it=>!hasMaterialProgress(it.whReady.history)&&!hasMaterialProgress(it.pengambilan.history))},
+    {key:'ready',title:'Marketing Ready',cls:'col-whparsial',items:items.filter(it=>hasMaterialProgress(it.whReady.history)&&!materialsComplete(it.pengambilan.history,it.qty))},
+    {key:'taken',title:'Taken',cls:'col-whok',items:items.filter(it=>hasMaterialProgress(it.pengambilan.history)&&!materialsComplete(it.pengambilan.history,it.qty))}
   ];
-  const complete=state.items.filter(it=>MATERIALS.every(material=>matSum(it.pengambilan.history,material)>=it.qty)).length;
-  return `<div class="toolbar"><input type="text" id="dashSearch" placeholder="Cari SPK di dashboard..." value="${esc(query)}" autocomplete="off" />${perm().canAddItem?'<button class="btn amber" id="dashboardAddRequest">+ Request Produksi</button>':''}</div>
+  const completedTaken=items.filter(it=>materialsComplete(it.pengambilan.history,it.qty));
+  const complete=state.items.filter(it=>materialsComplete(it.pengambilan.history,it.qty)).length;
+  return `<div class="toolbar"><input type="text" id="dashSearch" placeholder="Cari SPK di dashboard..." value="${esc(query)}" autocomplete="off" />${perm().canAddItem?'<button class="btn amber" id="dashboardAddRequest">+ Request Produksi</button>':''}<button class="btn ghost" id="exportExcel" title="Unduh tiga sheet Excel">↓ Export Excel</button></div>
     <div class="summary-cards">
       <div class="scard"><div class="num">${state.items.length}</div><div class="lbl">Total Request</div></div>
       <div class="scard"><div class="num">${stages[0].items.length}</div><div class="lbl">Request Produksi</div></div>
@@ -505,7 +525,9 @@ function renderDashboard(){
           ${stage.key==='request'?'':renderDashboardMaterialProgress(it)}
         </div>`).join(''):'<div class="kcol-empty">Belum ada request</div>'}
       </div>`).join('')}
-    </div>`;
+    </div>
+    <div class="pipeline-title" style="margin-top:24px">History Taken (${completedTaken.length})</div>
+    ${completedTaken.length?`<div class="history-table-wrap"><table class="history-table"><thead><tr><th>SPK</th><th>Customer</th><th>Tanggal OK Ambil</th><th>Material Taken</th></tr></thead><tbody>${completedTaken.map(it=>`<tr><td>${esc(it.spk)}</td><td>${esc(it.customer||'Customer belum diisi')}</td><td>${fmtDate(takenCompletionDate(it))}</td><td>${MATERIALS.map(material=>`${material}: ${matSum(it.pengambilan.history,material)}/${it.qty}`).join('<br>')}</td></tr>`).join('')}</tbody></table></div>`:'<div class="empty">Belum ada request Taken lengkap.</div>'}`;
 }
 
 function renderSelesaiCard(it){
@@ -821,6 +843,27 @@ function attachEvents(){
       if(d){ d.focus(); d.setSelectionRange(state.dashSearch.length, state.dashSearch.length); }
     };
   }
+  const exportExcel = document.getElementById('exportExcel');
+  if(exportExcel) exportExcel.onclick = async ()=>{
+    exportExcel.disabled=true;
+    try{
+      const headers={};
+      if(state.token) headers['x-auth-token']=state.token;
+      const response=await fetch('/api/export.xlsx',{headers});
+      if(!response.ok){
+        const error=await response.json().catch(()=>({}));
+        throw new Error(error.error||'Gagal mengunduh file Excel.');
+      }
+      const blob=await response.blob();
+      const url=URL.createObjectURL(blob);
+      const link=document.createElement('a');
+      link.href=url; link.download=`Marketing-System-${todayStr()}.xlsx`;
+      document.body.appendChild(link); link.click(); link.remove();
+      setTimeout(()=>URL.revokeObjectURL(url),1000);
+      showToast('File Excel berhasil diunduh.');
+    }catch(e){ showToast(e.message); }
+    finally{ exportExcel.disabled=false; }
+  };
   const dashboardAdd = document.getElementById('dashboardAddRequest');
   if(dashboardAdd) dashboardAdd.onclick = ()=>{ state.tab='request'; state.addOpen=true; render(); };
   const toggleAdd = document.getElementById('toggleAdd');
