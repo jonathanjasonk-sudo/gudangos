@@ -122,9 +122,21 @@
   .kcard{background:#fff;border-radius:9px;padding:10px 12px;margin-bottom:8px;cursor:pointer;border:1px solid transparent;transition:.12s;box-shadow:0 1px 3px rgba(0,0,0,.05);}
   .kcard:hover{border-color:var(--amber);box-shadow:0 2px 8px rgba(0,0,0,.1);}
   .kcard-spk{font-family:'Barlow Condensed';font-size:17px;font-weight:700;color:var(--navy);}
+  .kcard-head{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;}
+  .kcard-customer{max-width:56%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;background:#EEF2F7;border-radius:5px;padding:3px 6px;color:var(--text2);font-size:10px;text-align:right;}
   .kcard-xfd{font-size:11.5px;color:var(--text2);margin-top:1px;}
   .kcard-xfd.ov{color:var(--red);font-weight:600;}
   .kcard-qty{font-size:11.5px;color:var(--text2);margin-bottom:4px;}
+  .dashboard-mat-list{margin-top:8px;padding-top:7px;border-top:1px solid var(--line);}
+  .dashboard-mat-heading,.dashboard-mat-row{display:grid;grid-template-columns:minmax(72px,.9fr) minmax(72px,1fr) minmax(72px,1fr);gap:6px;align-items:center;}
+  .dashboard-mat-heading{margin-bottom:4px;color:var(--text2);font-size:9px;font-weight:700;text-transform:uppercase;}
+  .dashboard-mat-row{margin-top:5px;}
+  .dashboard-mat-name{font-size:10px;font-weight:600;overflow-wrap:anywhere;}
+  .dashboard-mat-cell{min-width:0;font-size:9px;color:var(--text2);}
+  .dashboard-mat-track{height:4px;margin-top:2px;border-radius:3px;background:#EDEDEF;overflow:hidden;}
+  .dashboard-mat-fill{height:100%;border-radius:3px;}
+  .dashboard-mat-fill.ready{background:var(--amber);}
+  .dashboard-mat-fill.taken{background:#2563EB;}
   .kprog{margin-top:5px;}
   .kprog-lbl{font-size:11px;color:var(--text2);display:flex;justify-content:space-between;margin-bottom:2px;}
   .kprog-track{background:#EDEDEF;border-radius:4px;height:5px;overflow:hidden;}
@@ -144,6 +156,7 @@
   .col-no{width:28px;text-align:center;color:var(--text2);font-size:12px;}
   .col-qty{width:90px;}
   .col-xfd{width:140px;}
+  .col-customer{width:190px;}
   .col-del{width:32px;text-align:center;}
   .del-row-btn{background:none;border:none;color:var(--text2);cursor:pointer;font-size:13px;padding:3px 6px;border-radius:4px;}
   .del-row-btn:hover{color:var(--red);background:var(--red-bg);}
@@ -447,6 +460,22 @@ function renderStage(stage,p){
     ${items.length?items.map(it=>renderItemCard(it,p)).join(''):'<div class="empty">Belum ada data pada bagian ini.</div>'}`;
 }
 
+function renderDashboardMaterialProgress(it){
+  const total=Number(it.qty)||0;
+  const rows=MATERIALS.map(material=>{
+    const ready=matSum(it.whReady.history,material);
+    const taken=matSum(it.pengambilan.history,material);
+    const readyPct=total?Math.min(100,ready/total*100):0;
+    const takenPct=total?Math.min(100,taken/total*100):0;
+    return `<div class="dashboard-mat-row">
+      <span class="dashboard-mat-name">${esc(material)}</span>
+      <div class="dashboard-mat-cell"><span>${ready}/${total}</span><div class="dashboard-mat-track"><div class="dashboard-mat-fill ready" style="width:${readyPct}%"></div></div></div>
+      <div class="dashboard-mat-cell"><span>${taken}/${total}</span><div class="dashboard-mat-track"><div class="dashboard-mat-fill taken" style="width:${takenPct}%"></div></div></div>
+    </div>`;
+  }).join('');
+  return `<div class="dashboard-mat-list"><div class="dashboard-mat-heading"><span>Material</span><span>Ready</span><span>Taken</span></div>${rows}</div>`;
+}
+
 function renderDashboard(){
   const query=(state.dashSearch||'').toLowerCase().trim();
   const items=state.items.filter(it=>!query||it.spk.toLowerCase().includes(query));
@@ -470,8 +499,9 @@ function renderDashboard(){
         <div class="kcol-head"><div><span class="kcol-title">${stage.title}</span></div><span class="kcol-badge">${stage.items.length}</span></div>
         <button class="dashboard-stage-link" data-tab="${stage.key}">Lihat semua</button>
         ${stage.items.length?stage.items.map(it=>`<div class="kcard" data-goto="${it.id}" data-stage="${stage.key}">
-          <div class="kcard-spk">${esc(it.spk)}</div><div class="kcard-xfd">XFD ${fmtDate(it.xfd)}</div><div class="kcard-qty">QTY ${it.qty}</div>
-          <div class="kprog-lbl"><span>Ready ${MATERIALS.filter(material=>matSum(it.whReady.history,material)>=it.qty).length}/4</span><span>Taken ${MATERIALS.filter(material=>matSum(it.pengambilan.history,material)>=it.qty).length}/4</span></div>
+          <div class="kcard-head"><div class="kcard-spk">${esc(it.spk)}</div><span class="kcard-customer" title="Customer: ${esc(it.customer||'Customer belum diisi')}">${esc(it.customer||'Customer belum diisi')}</span></div>
+          <div class="kcard-xfd">XFD ${fmtDate(it.xfd)}</div><div class="kcard-qty">QTY ${it.qty}</div>
+          ${renderDashboardMaterialProgress(it)}
         </div>`).join(''):'<div class="kcol-empty">Belum ada request</div>'}
       </div>`).join('')}
     </div>`;
@@ -511,6 +541,7 @@ function renderBulkForm(){
     <tr>
       <td class="col-no">${i+1}</td>
       <td><input type="text" class="bulk-spk" placeholder="SPK-001" /></td>
+      <td class="col-customer"><input type="text" class="bulk-customer" placeholder="Customer" required /></td>
       <td class="col-xfd"><input type="date" class="bulk-xfd" value="${d}" /></td>
       <td class="col-qty"><input type="number" class="bulk-qty" min="1" placeholder="1000" /></td>
       <td class="col-del"><button class="del-row-btn" type="button">✕</button></td>
@@ -522,6 +553,7 @@ function renderBulkForm(){
       <thead><tr>
         <th class="col-no">#</th>
         <th>SPK</th>
+        <th class="col-customer">Customer</th>
         <th class="col-xfd">XFD (Tanggal)</th>
         <th class="col-qty">QTY</th>
         <th class="col-del"></th>
@@ -800,7 +832,7 @@ function attachEvents(){
       const tbody = document.getElementById('bulkTbody');
       const idx = tbody.rows.length;
       const tr = document.createElement('tr');
-      tr.innerHTML = `<td class="col-no">${idx+1}</td><td><input type="text" class="bulk-spk" placeholder="SPK-001" /></td><td class="col-xfd"><input type="date" class="bulk-xfd" value="${todayStr()}" /></td><td class="col-qty"><input type="number" class="bulk-qty" min="1" placeholder="1000" /></td><td class="col-del"><button class="del-row-btn" type="button">✕</button></td>`;
+      tr.innerHTML = `<td class="col-no">${idx+1}</td><td><input type="text" class="bulk-spk" placeholder="SPK-001" /></td><td class="col-customer"><input type="text" class="bulk-customer" placeholder="Customer" required /></td><td class="col-xfd"><input type="date" class="bulk-xfd" value="${todayStr()}" /></td><td class="col-qty"><input type="number" class="bulk-qty" min="1" placeholder="1000" /></td><td class="col-del"><button class="del-row-btn" type="button">✕</button></td>`;
       tr.querySelector('.del-row-btn').onclick = () => delBulkRow(tr);
       tbody.appendChild(tr);
       tr.querySelector('.bulk-spk').focus();
@@ -815,12 +847,18 @@ function attachEvents(){
   if(saveBulkBtn){
     saveBulkBtn.onclick = async ()=>{
       const rows = [];
+      let missingCustomer = false;
       document.querySelectorAll('#bulkTbody tr').forEach(tr=>{
         const spk = tr.querySelector('.bulk-spk').value.trim();
+        const customer = tr.querySelector('.bulk-customer').value.trim();
         const xfd = tr.querySelector('.bulk-xfd').value;
         const qty = Number(tr.querySelector('.bulk-qty').value);
-        if(spk && xfd && qty>0) rows.push({spk,xfd,qty});
+        if(spk && xfd && qty>0){
+          if(!customer) missingCustomer = true;
+          else rows.push({spk,customer,xfd,qty});
+        }
       });
+      if(missingCustomer){ showToast('Customer wajib diisi untuk setiap request.'); return; }
       if(rows.length===0){ showToast('Minimal 1 baris SPK harus diisi.'); return; }
       saveBulkBtn.disabled=true; saveBulkBtn.textContent='Menyimpan...';
       try{

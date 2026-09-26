@@ -21,6 +21,7 @@ async function initDb() {
     CREATE TABLE IF NOT EXISTS items (
       id TEXT PRIMARY KEY,
       spk TEXT NOT NULL,
+      customer TEXT NOT NULL DEFAULT '',
       xfd DATE NOT NULL,
       qty INTEGER NOT NULL,
       created_at TIMESTAMP DEFAULT now(),
@@ -29,6 +30,7 @@ async function initDb() {
       planning_date DATE
     )
   `);
+  await pool.query(`ALTER TABLE items ADD COLUMN IF NOT EXISTS customer TEXT NOT NULL DEFAULT ''`);
   await pool.query(`
     CREATE TABLE IF NOT EXISTS wh_ready_history (
       id SERIAL PRIMARY KEY,
@@ -139,6 +141,7 @@ async function getFullItems() {
   return items.map(it => ({
     id: it.id,
     spk: it.spk,
+    customer: it.customer || '',
     xfd: it.xfd,
     qty: it.qty,
     createdAt: it.created_at,
@@ -165,12 +168,13 @@ app.get('/api/items', async (req, res) => {
 });
 
 app.post('/api/items', requirePerm('addItem'), async (req, res) => {
-  const { spk, xfd, qty } = req.body || {};
-  if (!spk || !xfd || !qty || qty <= 0) return res.status(400).json({ error: 'SPK, XFD, dan QTY wajib diisi.' });
+  const { spk, customer, xfd, qty } = req.body || {};
+  const customerName = typeof customer === 'string' ? customer.trim() : '';
+  if (!spk || !customerName || !xfd || !qty || qty <= 0) return res.status(400).json({ error: 'SPK, Customer, XFD, dan QTY wajib diisi.' });
   const id = crypto.randomUUID();
   await pool.query(
-    'INSERT INTO items (id, spk, xfd, qty, created_by, planning_done, planning_date) VALUES ($1,$2,$3,$4,$5,true,CURRENT_DATE)',
-    [id, spk, xfd, qty, req.role]
+    'INSERT INTO items (id, spk, customer, xfd, qty, created_by, planning_done, planning_date) VALUES ($1,$2,$3,$4,$5,$6,true,CURRENT_DATE)',
+    [id, spk, customerName, xfd, qty, req.role]
   );
   res.json(await getFullItems());
 });
@@ -180,13 +184,16 @@ app.post('/api/items/bulk', requirePerm('addItem'), async (req, res) => {
     const { items } = req.body || {};
     if (!Array.isArray(items) || items.length === 0) return res.status(400).json({ error: 'Array items wajib diisi.' });
     const limited = items.slice(0, 200);
+    const missingCustomer = limited.some(item => item.spk && item.xfd && Number(item.qty) > 0 && !String(item.customer || '').trim());
+    if (missingCustomer) return res.status(400).json({ error: 'Customer wajib diisi untuk setiap request.' });
     for (const item of limited) {
-      const { spk, xfd, qty } = item;
+      const { spk, customer, xfd, qty } = item;
       if (!spk || !xfd || !qty || Number(qty) <= 0) continue;
+      const customerName = String(customer || '').trim();
       const id = crypto.randomUUID();
       await pool.query(
-        'INSERT INTO items (id, spk, xfd, qty, created_by, planning_done, planning_date) VALUES ($1,$2,$3,$4,$5,true,CURRENT_DATE)',
-        [id, spk, xfd, Number(qty), req.role]
+        'INSERT INTO items (id, spk, customer, xfd, qty, created_by, planning_done, planning_date) VALUES ($1,$2,$3,$4,$5,$6,true,CURRENT_DATE)',
+        [id, spk, customerName, xfd, Number(qty), req.role]
       );
     }
     res.json(await getFullItems());

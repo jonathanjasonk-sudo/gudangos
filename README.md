@@ -31,7 +31,7 @@ Password default: Produksi `prod123`, Marketing `marketing123`, dan Master `mast
 Railway akan memberi Anda URL publik (misalnya `namaservis.up.railway.app`). Buka URL itu, dan aplikasi sudah bisa dipakai oleh siapa saja yang Anda beri linknya, dengan data tersimpan permanen di database.
 
 ## Alur dan akses
-- **Request Produksi** — akun Produksi membuat request SPK; Master juga dapat membuat atau menghapus request.
+- **Request Produksi** — akun Produksi mengisi SPK, Customer, XFD, dan QTY; Master juga dapat membuat atau menghapus request.
 - **Marketing Ready** — akun Marketing mencatat material yang siap, per material dan qty.
 - **Taken** — akun Marketing mencatat material yang diambil, per material dan qty.
 - **Master** — akses penuh ke request, Marketing Ready, dan Taken.
