@@ -501,7 +501,7 @@ function renderDashboard(){
         ${stage.items.length?stage.items.map(it=>`<div class="kcard" data-goto="${it.id}" data-stage="${stage.key}">
           <div class="kcard-head"><div class="kcard-spk">${esc(it.spk)}</div><span class="kcard-customer" title="Customer: ${esc(it.customer||'Customer belum diisi')}">${esc(it.customer||'Customer belum diisi')}</span></div>
           <div class="kcard-xfd">XFD ${fmtDate(it.xfd)}</div><div class="kcard-qty">QTY ${it.qty}</div>
-          ${renderDashboardMaterialProgress(it)}
+          ${stage.key==='request'?'':renderDashboardMaterialProgress(it)}
         </div>`).join(''):'<div class="kcol-empty">Belum ada request</div>'}
       </div>`).join('')}
     </div>`;
