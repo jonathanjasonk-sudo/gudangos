@@ -103,7 +103,7 @@
   .scard.good .num{color:var(--green);}
   /* Kanban */
   .pipeline-title{font-size:15px;font-weight:600;color:var(--navy);margin-bottom:12px;padding-left:12px;border-left:4px solid var(--amber);}
-  .kanban{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;align-items:start;}
+  .kanban{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;align-items:start;}
   @media(max-width:900px){.kanban{grid-template-columns:repeat(2,1fr);}}
   @media(max-width:500px){.kanban{grid-template-columns:1fr;}}
   .kcol{background:#EDEDEF;border-radius:12px;padding:10px;border-top:3px solid #C5C7CC;}
@@ -218,6 +218,9 @@
   /* Tabs → pill style */
   .tabs{background:#fff;padding:5px;border-radius:12px;display:inline-flex;gap:3px;box-shadow:var(--shadow-sm);margin-bottom:22px;}
   .tab{border-radius:9px;padding:8px 20px;font-size:14px;transition:.15s;}
+  .scard[data-tab],.dashboard-stage-link{cursor:pointer;}
+  .dashboard-stage-link{background:none;border:0;color:var(--amber-d);font:inherit;font-size:12px;font-weight:700;padding:4px 0;}
+  .dashboard-stage-link:hover{text-decoration:underline;}
   .tab:hover:not(.active){background:#F0F2F7;}
   .tab.active{background:var(--navy);color:#fff;box-shadow:var(--shadow-sm);}
   /* Summary cards */
@@ -298,7 +301,7 @@ let state = {
     role: localStorage.getItem('gudang_role') || null,
   token: localStorage.getItem('gudang_token') || null,
   items: [],
-  tab: 'request',
+  tab: 'dashboard',
   expanded: null,
   search: '',
   dashSearch: '',
@@ -422,11 +425,12 @@ function renderMain(){
     </div>
   </div>
   <div class="tabs">
-    <div class="tab ${state.tab==='request'?'active':''}" data-tab="request">Request Produksi <b>${state.items.filter(it=>!it.whReady.history.length).length}</b></div>
+    <div class="tab ${state.tab==='dashboard'?'active':''}" data-tab="dashboard">Dashboard</div>
+    <div class="tab ${state.tab==='request'?'active':''}" data-tab="request">Request Produksi <b>${state.items.filter(it=>!it.whReady.history.length&&!it.pengambilan.history.length).length}</b></div>
     <div class="tab ${state.tab==='ready'?'active':''}" data-tab="ready">Marketing Ready <b>${state.items.filter(it=>it.whReady.history.length>0&&!it.pengambilan.history.length).length}</b></div>
     <div class="tab ${state.tab==='taken'?'active':''}" data-tab="taken">Taken <b>${state.items.filter(it=>it.pengambilan.history.length>0).length}</b></div>
   </div>
-  ${state.loading ? '<div class="empty">Memuat data...</div>' : renderStage(state.tab,p)}
+  ${state.loading ? '<div class="empty">Memuat data...</div>' : (state.tab==='dashboard' ? renderDashboard(p) : renderStage(state.tab,p))}
   `;
 }
 
@@ -434,7 +438,7 @@ function renderStage(stage,p){
   const titles={request:'Request Produksi',ready:'Marketing Ready',taken:'Taken'};
   const query=state.search.toLowerCase().trim();
   const items=state.items.filter(it=>{
-    const matches=stage==='request'?!it.whReady.history.length:stage==='ready'?it.whReady.history.length>0&&!it.pengambilan.history.length:it.pengambilan.history.length>0;
+    const matches=stage==='request'?!it.whReady.history.length&&!it.pengambilan.history.length:stage==='ready'?it.whReady.history.length>0&&!it.pengambilan.history.length:it.pengambilan.history.length>0;
     return matches&&(!query||it.spk.toLowerCase().includes(query));
   });
   return `<div class="toolbar"><input type="text" id="searchBox" placeholder="Cari SPK..." value="${esc(state.search)}" />${stage==='request'&&p.canAddItem?`<button class="btn amber" id="toggleAdd">${state.addOpen?'Tutup':'+ Request Produksi'}</button>`:''}</div>
@@ -444,57 +448,33 @@ function renderStage(stage,p){
 }
 
 function renderDashboard(){
-  const items = state.items;
-  const q = (state.dashSearch||'').toLowerCase().trim();
-  const filtered = q ? items.filter(it=>it.spk.toLowerCase().includes(q)) : items;
-  const total = items.length;
-  let retActive=0, overdueCount=0;
-  items.forEach(it=>{
-    if(returanTotals(it).sisa>0) retActive++;
-    if(dayjs(it.xfd).isBefore(dayjs(),'day') && stageStatus(it.pengambilan,it.qty)!=='ok') overdueCount++;
-  });
-  const planning=[], gudang=[], pengambilan=[], retur=[], selesai=[];
-  filtered.forEach(it=>{
-    const ipWhSum = matSum(it.whReady.history,'IP');
-    const rbWhSum = matSum(it.whReady.history,'RB_TPU');
-    const ipPengSum = matSum(it.pengambilan.history,'IP');
-    const rbPengSum = matSum(it.pengambilan.history,'RB_TPU');
-    const isSelesai = ipPengSum>=it.qty && rbPengSum>=it.qty;
-    const hasWh = it.whReady.history.length>0;
-    const hasPeng = it.pengambilan.history.length>0;
-    const rt = returanTotals(it);
-    if(rt.sisa>0) retur.push(it);
-    else if(isSelesai) selesai.push(it);
-    else if(!hasWh && !hasPeng) planning.push(it);
-    else {
-      if(hasWh) gudang.push(it);
-      if(hasPeng) pengambilan.push(it);
-    }
-  });
-  if(total===0) return '<div class="empty">Belum ada data SPK. Tambahkan lewat tab "Data SPK".</div>';
-  return `
-  <div class="dash-searchbar">
-    <input type="text" id="dashSearch" placeholder="🔍 Cari SPK di dashboard..." value="${esc(q)}" autocomplete="off" />
-  </div>
-  <div class="summary-cards">
-    <div class="scard"><div class="num">${total}</div><div class="lbl">Total SPK</div></div>
-    <div class="scard"><div class="num" style="color:var(--green);">${selesai.length}</div><div class="lbl">Selesai ✓<br>Ambil OK</div></div>
-    <div class="scard ${retActive>0?'warn':''}"><div class="num">${retActive}</div><div class="lbl">Retur<br>Aktif</div></div>
-    <div class="scard ${overdueCount>0?'warn':''}"><div class="num">${overdueCount}</div><div class="lbl">XFD Lewat<br>Belum OK</div></div>
-  </div>
-  <div class="pipeline-title">Pipeline Aktif${q?` \u2014 "${esc(q)}"`:''}</div>
-  <div class="kanban">
-    ${renderKanbanCol('col-antrian','Planning','Antrian SPK',planning,'planning')}
-    ${renderKanbanCol('col-whparsial','Gudang','Persiapan Bahan',gudang,'gudang')}
-    ${renderKanbanCol('col-whok','Pengambilan','Ambil Bahan',pengambilan,'pengambilan')}
-    ${renderKanbanCol('col-selesai','Retur','Dikembalikan',retur,'retur')}
-  </div>
-  ${selesai.length>0?`
-  <div class="pipeline-title" style="margin-top:24px;border-left-color:var(--green);">Selesai / History (${selesai.length})</div>
-  <div class="selesai-grid">
-    ${selesai.map(it=>renderSelesaiCard(it)).join('')}
-  </div>`:''}
-  `;
+  const query=(state.dashSearch||'').toLowerCase().trim();
+  const items=state.items.filter(it=>!query||it.spk.toLowerCase().includes(query));
+  const stages=[
+    {key:'request',title:'Request Produksi',cls:'col-antrian',items:items.filter(it=>!it.whReady.history.length&&!it.pengambilan.history.length)},
+    {key:'ready',title:'Marketing Ready',cls:'col-whparsial',items:items.filter(it=>it.whReady.history.length>0&&!it.pengambilan.history.length)},
+    {key:'taken',title:'Taken',cls:'col-whok',items:items.filter(it=>it.pengambilan.history.length>0)}
+  ];
+  const complete=state.items.filter(it=>MATERIALS.every(material=>matSum(it.pengambilan.history,material)>=it.qty)).length;
+  return `<div class="toolbar"><input type="text" id="dashSearch" placeholder="Cari SPK di dashboard..." value="${esc(query)}" autocomplete="off" />${perm().canAddItem?'<button class="btn amber" id="dashboardAddRequest">+ Request Produksi</button>':''}</div>
+    <div class="summary-cards">
+      <div class="scard"><div class="num">${state.items.length}</div><div class="lbl">Total Request</div></div>
+      <div class="scard"><div class="num">${stages[0].items.length}</div><div class="lbl">Request Produksi</div></div>
+      <div class="scard"><div class="num">${stages[1].items.length}</div><div class="lbl">Marketing Ready</div></div>
+      <div class="scard"><div class="num">${stages[2].items.length}</div><div class="lbl">Taken</div></div>
+      <div class="scard good"><div class="num">${complete}</div><div class="lbl">Material Taken lengkap</div></div>
+    </div>
+    <div class="pipeline-title">Alur Request${query?` — "${esc(query)}"`:''}</div>
+    <div class="kanban">
+      ${stages.map(stage=>`<div class="kcol ${stage.cls}">
+        <div class="kcol-head"><div><span class="kcol-title">${stage.title}</span></div><span class="kcol-badge">${stage.items.length}</span></div>
+        <button class="dashboard-stage-link" data-tab="${stage.key}">Lihat semua</button>
+        ${stage.items.length?stage.items.map(it=>`<div class="kcard" data-goto="${it.id}" data-stage="${stage.key}">
+          <div class="kcard-spk">${esc(it.spk)}</div><div class="kcard-xfd">XFD ${fmtDate(it.xfd)}</div><div class="kcard-qty">QTY ${it.qty}</div>
+          <div class="kprog-lbl"><span>Ready ${MATERIALS.filter(material=>matSum(it.whReady.history,material)>=it.qty).length}/4</span><span>Taken ${MATERIALS.filter(material=>matSum(it.pengambilan.history,material)>=it.qty).length}/4</span></div>
+        </div>`).join(''):'<div class="kcol-empty">Belum ada request</div>'}
+      </div>`).join('')}
+    </div>`;
 }
 
 function renderSelesaiCard(it){
@@ -783,12 +763,12 @@ function attachEvents(){
 
   const logout = document.getElementById('logoutBtn');
   if(logout) logout.onclick = ()=>{
-    state.role=null; state.token=null; state.tab='request';
+    state.role=null; state.token=null; state.tab='dashboard';
     localStorage.removeItem('gudang_role'); localStorage.removeItem('gudang_token');
     render();
   };
 
-  app.querySelectorAll('.tab').forEach(el=>{
+  app.querySelectorAll('[data-tab]').forEach(el=>{
     el.onclick = ()=>{ state.tab = el.dataset.tab; render(); };
   });
 
@@ -808,6 +788,8 @@ function attachEvents(){
       if(d){ d.focus(); d.setSelectionRange(state.dashSearch.length, state.dashSearch.length); }
     };
   }
+  const dashboardAdd = document.getElementById('dashboardAddRequest');
+  if(dashboardAdd) dashboardAdd.onclick = ()=>{ state.tab='request'; state.addOpen=true; render(); };
   const toggleAdd = document.getElementById('toggleAdd');
   if(toggleAdd) toggleAdd.onclick = ()=>{ state.addOpen = !state.addOpen; render(); };
 
@@ -852,7 +834,7 @@ function attachEvents(){
   // Kanban card → buka di Data SPK
   app.querySelectorAll('[data-goto]').forEach(el=>{
     el.onclick = ()=>{
-      state.tab='data'; state.expanded=el.dataset.goto; render();
+      state.tab=el.dataset.stage || 'request'; state.expanded=el.dataset.goto; render();
       setTimeout(()=>{ const c=document.querySelector(`[data-toggle="${el.dataset.goto}"]`); if(c) c.scrollIntoView({behavior:'smooth',block:'center'}); },80);
     };
   });
