@@ -1,6 +1,6 @@
-# Dashboard Gudang
+# Purchasing
 
-Aplikasi tracking SPK dengan 4 tahap: Planning 計劃, WH Ready 備料, Pengambilan 領料, Returan 退料.
+Aplikasi tracking request produksi dan material purchasing dengan tiga bagian: Request Produksi, Marketing Ready, dan Taken.
 Backend: Node.js + Express + PostgreSQL. Frontend: HTML/JS biasa (tanpa build step).
 
 ## Cara deploy ke Railway (gratis untuk mulai, tidak perlu install apa-apa di komputer)
@@ -18,23 +18,24 @@ Backend: Node.js + Express + PostgreSQL. Frontend: HTML/JS biasa (tanpa build st
 1. Di dalam project yang sama, klik **New** → **Database** → **Add PostgreSQL**.
 2. Railway otomatis membuat variabel `DATABASE_URL` dan menghubungkannya ke service Anda — tidak perlu setting manual.
 
-### 4. Set passcode & secret
+### 4. Set password & secret
 Di service aplikasi (bukan database), buka tab **Variables**, tambahkan:
-- `PASS_PPIC` → passcode untuk role PPIC
-- `PASS_WH` → passcode untuk role WH
-- `PASS_SF` → passcode untuk role SF
+- `PASS_PRODUKSI` → password akun Produksi
+- `PASS_MARKETING` → password akun Marketing
+- `PASS_MASTER` → password akun Master
 - `AUTH_SECRET` → string acak panjang (bebas, buat sendiri)
 
-Kalau tidak diset, aplikasi tetap jalan dengan passcode default (`ppic123`, `wh123`, `sf123`) — sebaiknya diganti sebelum dipakai tim.
+Password default: Produksi `prod123`, Marketing `marketing123`, dan Master `master123`. Atur password melalui environment variables sebelum aplikasi digunakan bersama.
 
 ### 5. Selesai
 Railway akan memberi Anda URL publik (misalnya `namaservis.up.railway.app`). Buka URL itu, dan aplikasi sudah bisa dipakai oleh siapa saja yang Anda beri linknya, dengan data tersimpan permanen di database.
 
-## Struktur data
-- **Planning (計劃)** — ditandai selesai oleh PPIC.
-- **WH Ready (備料)** — PPIC/WH mengisi qty bertahap; status otomatis jadi OK saat total qty tercapai; setiap pengisian tercatat sebagai riwayat bertanggal.
-- **Pengambilan (領料)** — sama seperti WH Ready, tapi input dari PPIC/SF.
-- **Returan (退料)** — PPIC/WH/SF bisa mengajukan; hanya WH yang bisa menandai selesai (setelah itu otomatis hilang dari daftar aktif).
+## Alur dan akses
+- **Request Produksi** — akun Produksi membuat request SPK; Master juga dapat membuat atau menghapus request.
+- **Marketing Ready** — akun Marketing mencatat material yang siap, per material dan qty.
+- **Taken** — akun Marketing mencatat material yang diambil, per material dan qty.
+- **Master** — akses penuh ke request, Marketing Ready, dan Taken.
+- Material yang dicatat: Shoe Box, Size Label, Karton Label, dan Marking.
 
 ## Menjalankan di komputer sendiri (opsional, untuk uji coba sebelum deploy)
 Butuh Node.js 18+ dan PostgreSQL terpasang.

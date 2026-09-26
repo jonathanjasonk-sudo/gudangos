@@ -71,14 +71,15 @@ async function initDb() {
 }
 
 // ---------- Auth ----------
-// Passcode diambil dari environment variable Railway (Settings -> Variables).
-// Kalau tidak diset, pakai default di bawah (SEBAIKNYA diganti saat deploy).
+// Password dapat diatur melalui environment variables Railway.
+// Ganti nilai default sebelum aplikasi digunakan bersama.
 const ROLE_PASS = {
-  PPIC: process.env.PASS_PPIC || 'ppic123',
-  WH: process.env.PASS_WH || 'wh123',
-  SF: process.env.PASS_SF || 'sf123'
+  PRODUKSI: process.env.PASS_PRODUKSI || 'prod123',
+  MARKETING: process.env.PASS_MARKETING || 'marketing123',
+  MASTER: process.env.PASS_MASTER || 'master123'
 };
 const SECRET = process.env.AUTH_SECRET || 'ganti-secret-ini-di-railway';
+const MATERIALS = ['Shoe Box', 'Size Label', 'Karton Label', 'Marking'];
 
 function makeToken(role) {
   const sig = crypto.createHmac('sha256', SECRET).update(role).digest('hex');
@@ -102,12 +103,12 @@ function authMiddleware(req, res, next) {
   next();
 }
 const PERMS = {
-  planning: ['PPIC'],
-  addItem: ['PPIC', 'WH'],
-  whReady: ['PPIC', 'WH'],
-  pengambilan: ['PPIC', 'SF'],
-  returanAdd: ['PPIC', 'WH', 'SF'],
-  returanConfirm: ['WH']
+  planning: ['MASTER', 'PRODUKSI'],
+  addItem: ['PRODUKSI', 'MASTER'],
+  whReady: ['MARKETING', 'MASTER'],
+  pengambilan: ['MARKETING', 'MASTER', 'PRODUKSI'],
+  returanAdd: ['MASTER', 'MARKETING'],
+  returanConfirm: ['MASTER', 'MARKETING']
 };
 function requirePerm(key) {
   return (req, res, next) => {
@@ -180,19 +181,13 @@ app.post('/api/items/bulk', requirePerm('addItem'), async (req, res) => {
     if (!Array.isArray(items) || items.length === 0) return res.status(400).json({ error: 'Array items wajib diisi.' });
     const limited = items.slice(0, 200);
     for (const item of limited) {
-      const { spk, xfd, qty, stage } = item;
+      const { spk, xfd, qty } = item;
       if (!spk || !xfd || !qty || Number(qty) <= 0) continue;
       const id = crypto.randomUUID();
       await pool.query(
         'INSERT INTO items (id, spk, xfd, qty, created_by, planning_done, planning_date) VALUES ($1,$2,$3,$4,$5,true,CURRENT_DATE)',
         [id, spk, xfd, Number(qty), req.role]
       );
-      if (stage === 'gudang') {
-        await pool.query(
-          'INSERT INTO wh_ready_history (item_id, qty, date, by_role) VALUES ($1,$2,CURRENT_DATE,$3)',
-          [id, Number(qty), req.role]
-        );
-      }
     }
     res.json(await getFullItems());
   } catch (e) {
@@ -208,17 +203,27 @@ app.post('/api/items/:id/planning', requirePerm('planning'), async (req, res) =>
 
 app.post('/api/items/:id/wh-ready', requirePerm('whReady'), async (req, res) => {
   const { qty, date, pic, material, notes } = req.body || {};
-  if (!qty || qty <= 0 || !date) return res.status(400).json({ error: 'Qty dan tanggal wajib diisi.' });
-  const validMat = material === 'RB_TPU' ? 'RB_TPU' : 'IP';
-  await pool.query('INSERT INTO wh_ready_history (item_id, qty, date, by_role, pic, material, notes) VALUES ($1,$2,$3,$4,$5,$6,$7)', [req.params.id, qty, date, req.role, pic || null, validMat, notes || null]);
+  if (!Number.isFinite(Number(qty)) || Number(qty) <= 0 || !date || !MATERIALS.includes(material)) {
+    return res.status(400).json({ error: 'Qty, tanggal, dan material yang valid wajib diisi.' });
+  }
+  const item = (await pool.query('SELECT qty FROM items WHERE id=$1', [req.params.id])).rows[0];
+  if (!item) return res.status(404).json({ error: 'Request tidak ditemukan.' });
+  const used = (await pool.query('SELECT COALESCE(SUM(qty),0)::int AS total FROM wh_ready_history WHERE item_id=$1 AND material=$2', [req.params.id, material])).rows[0].total;
+  if (Number(used) + Number(qty) > item.qty) return res.status(400).json({ error: `Qty melebihi sisa material (${item.qty - Number(used)}).` });
+  await pool.query('INSERT INTO wh_ready_history (item_id, qty, date, by_role, pic, material, notes) VALUES ($1,$2,$3,$4,$5,$6,$7)', [req.params.id, Number(qty), date, req.role, pic || null, material, notes || null]);
   res.json(await getFullItems());
 });
 
 app.post('/api/items/:id/pengambilan', requirePerm('pengambilan'), async (req, res) => {
   const { qty, date, pic, material, notes } = req.body || {};
-  if (!qty || qty <= 0 || !date) return res.status(400).json({ error: 'Qty dan tanggal wajib diisi.' });
-  const validMat = material === 'RB_TPU' ? 'RB_TPU' : 'IP';
-  await pool.query('INSERT INTO pengambilan_history (item_id, qty, date, by_role, pic, material, notes) VALUES ($1,$2,$3,$4,$5,$6,$7)', [req.params.id, qty, date, req.role, pic || null, validMat, notes || null]);
+  if (!Number.isFinite(Number(qty)) || Number(qty) <= 0 || !date || !MATERIALS.includes(material)) {
+    return res.status(400).json({ error: 'Qty, tanggal, dan material yang valid wajib diisi.' });
+  }
+  const item = (await pool.query('SELECT qty FROM items WHERE id=$1', [req.params.id])).rows[0];
+  if (!item) return res.status(404).json({ error: 'Request tidak ditemukan.' });
+  const used = (await pool.query('SELECT COALESCE(SUM(qty),0)::int AS total FROM pengambilan_history WHERE item_id=$1 AND material=$2', [req.params.id, material])).rows[0].total;
+  if (Number(used) + Number(qty) > item.qty) return res.status(400).json({ error: `Qty melebihi sisa material (${item.qty - Number(used)}).` });
+  await pool.query('INSERT INTO pengambilan_history (item_id, qty, date, by_role, pic, material, notes) VALUES ($1,$2,$3,$4,$5,$6,$7)', [req.params.id, Number(qty), date, req.role, pic || null, material, notes || null]);
   res.json(await getFullItems());
 });
 

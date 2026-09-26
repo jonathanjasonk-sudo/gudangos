@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Dashboard Gudang</title>
+<title>Purchasing</title>
 <style>
   :root{
     --navy:#1C2333; --navy2:#252E45; --amber:#F5A623; --amber-d:#8A5A0A;
@@ -288,16 +288,17 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/dayjs/1.11.10/dayjs.min.js"></script>
 <script>
 const ROLE_INFO = {
-  PPIC: {label:'PPIC', full:'Planning & Produksi'},
-  WH: {label:'WH', full:'Warehouse'},
-  SF: {label:'SF', full:'StockFit'}
+  PRODUKSI: {label:'Produksi', full:'Request Produksi'},
+  MARKETING: {label:'Marketing', full:'Marketing Ready & Taken'},
+  MASTER: {label:'Master', full:'Akses penuh'}
 };
+const MATERIALS = ['Shoe Box', 'Size Label', 'Karton Label', 'Marking'];
 
 let state = {
-  role: localStorage.getItem('gudang_role') || null,
+    role: localStorage.getItem('gudang_role') || null,
   token: localStorage.getItem('gudang_token') || null,
   items: [],
-  tab: 'dashboard',
+  tab: 'request',
   expanded: null,
   search: '',
   dashSearch: '',
@@ -372,13 +373,10 @@ function xfdStatus(xfdDate, isDone){
 function perm(){
   const r = state.role;
   return {
-    canAddItem: r==='PPIC' || r==='WH',
-    canDeleteItem: r==='PPIC',
-    canEditPlanning: r==='PPIC',
-    canEditWhReady: r==='PPIC'||r==='WH',
-    canEditPengambilan: r==='PPIC'||r==='SF',
-    canAddReturan: r==='PPIC'||r==='WH'||r==='SF',
-    canConfirmReturan: r==='WH'
+    canAddItem: r==='PRODUKSI' || r==='MASTER',
+    canDeleteItem: r==='MASTER',
+    canEditWhReady: r==='MARKETING' || r==='MASTER',
+    canEditPengambilan: r==='MARKETING' || r==='MASTER'
   };
 }
 
@@ -393,19 +391,19 @@ function renderLogin(){
   return `
   <div class="login-wrap">
     <div class="login-card">
-      <h1>Dashboard Gudang</h1>
-      <div class="login-sub">Pilih peran untuk masuk</div>
+      <h1>Purchasing</h1>
+      <div class="login-sub">Pilih akun untuk masuk</div>
       <div class="role-grid">
         ${Object.keys(ROLE_INFO).map(k=>`
           <div class="role-btn ${sel===k?'active':''}" data-role="${k}">${ROLE_INFO[k].label}<small>${ROLE_INFO[k].full}</small></div>
         `).join('')}
       </div>
       ${sel ? `
-        <input type="password" id="passInput" placeholder="Masukkan passcode ${ROLE_INFO[sel].label}" />
+        <input type="password" id="passInput" placeholder="Masukkan password ${ROLE_INFO[sel].label}" />
         ${state.loginErr ? `<div class="login-err">${esc(state.loginErr)}</div>` : ''}
         <button class="go" id="loginGo">Masuk sebagai ${ROLE_INFO[sel].label}</button>
       ` : ''}
-      <div class="view-only-link" id="viewOnlyBtn">Masuk sebagai tampilan saja (Dashboard/View Only)</div>
+      <div class="view-only-link" id="viewOnlyBtn">Lihat data saja</div>
     </div>
   </div>`;
 }
@@ -415,8 +413,8 @@ function renderMain(){
   return `
   <div class="topbar">
     <div class="brand">
-      <div class="badge">WH</div>
-      <div><h1>Dashboard Gudang</h1><div class="sub">SPK · XFD · QTY tracking</div></div>
+      <div class="badge">P</div>
+      <div><h1>Purchasing</h1><div class="sub">Request Produksi · Marketing Ready · Taken</div></div>
     </div>
     <div class="who">
       <div class="tag">${state.role==='VIEW' ? 'View only' : ROLE_INFO[state.role].label + ' — ' + ROLE_INFO[state.role].full}</div>
@@ -424,11 +422,25 @@ function renderMain(){
     </div>
   </div>
   <div class="tabs">
-    <div class="tab ${state.tab==='dashboard'?'active':''}" data-tab="dashboard">Dashboard</div>
-    <div class="tab ${state.tab==='data'?'active':''}" data-tab="data">Data SPK</div>
+    <div class="tab ${state.tab==='request'?'active':''}" data-tab="request">Request Produksi <b>${state.items.filter(it=>!it.whReady.history.length).length}</b></div>
+    <div class="tab ${state.tab==='ready'?'active':''}" data-tab="ready">Marketing Ready <b>${state.items.filter(it=>it.whReady.history.length>0&&!it.pengambilan.history.length).length}</b></div>
+    <div class="tab ${state.tab==='taken'?'active':''}" data-tab="taken">Taken <b>${state.items.filter(it=>it.pengambilan.history.length>0).length}</b></div>
   </div>
-  ${state.loading ? '<div class="empty">Memuat data...</div>' : (state.tab==='dashboard' ? renderDashboard() : renderData(p))}
+  ${state.loading ? '<div class="empty">Memuat data...</div>' : renderStage(state.tab,p)}
   `;
+}
+
+function renderStage(stage,p){
+  const titles={request:'Request Produksi',ready:'Marketing Ready',taken:'Taken'};
+  const query=state.search.toLowerCase().trim();
+  const items=state.items.filter(it=>{
+    const matches=stage==='request'?!it.whReady.history.length:stage==='ready'?it.whReady.history.length>0&&!it.pengambilan.history.length:it.pengambilan.history.length>0;
+    return matches&&(!query||it.spk.toLowerCase().includes(query));
+  });
+  return `<div class="toolbar"><input type="text" id="searchBox" placeholder="Cari SPK..." value="${esc(state.search)}" />${stage==='request'&&p.canAddItem?`<button class="btn amber" id="toggleAdd">${state.addOpen?'Tutup':'+ Request Produksi'}</button>`:''}</div>
+    ${stage==='request'&&p.canAddItem&&state.addOpen?renderBulkForm():''}
+    <div class="pipeline-title">${titles[stage]} (${items.length})</div>
+    ${items.length?items.map(it=>renderItemCard(it,p)).join(''):'<div class="empty">Belum ada data pada bagian ini.</div>'}`;
 }
 
 function renderDashboard(){
@@ -515,14 +527,12 @@ function renderData(p){
 
 function renderBulkForm(){
   const d = todayStr();
-  const stageOpts = `<option value="planning">Planning</option><option value="gudang">Gudang (WH Siap)</option>`;
   const rows = [0,1,2].map(i=>`
     <tr>
       <td class="col-no">${i+1}</td>
       <td><input type="text" class="bulk-spk" placeholder="SPK-001" /></td>
       <td class="col-xfd"><input type="date" class="bulk-xfd" value="${d}" /></td>
       <td class="col-qty"><input type="number" class="bulk-qty" min="1" placeholder="1000" /></td>
-      <td class="col-stage"><select class="bulk-stage">${stageOpts}</select></td>
       <td class="col-del"><button class="del-row-btn" type="button">✕</button></td>
     </tr>`).join('');
   return `
@@ -534,7 +544,6 @@ function renderBulkForm(){
         <th>SPK</th>
         <th class="col-xfd">XFD (Tanggal)</th>
         <th class="col-qty">QTY</th>
-        <th class="col-stage">Masuk Ke</th>
         <th class="col-del"></th>
       </tr></thead>
       <tbody id="bulkTbody">${rows}</tbody>
@@ -706,6 +715,41 @@ function renderItemDetail(it,p,ws,ps){
   </div>`;
 }
 
+function renderItemCard(it,p){
+  const isOpen=state.expanded===it.id;
+  const readyCount=MATERIALS.filter(material=>matSum(it.whReady.history,material)>=it.qty).length;
+  const takenCount=MATERIALS.filter(material=>matSum(it.pengambilan.history,material)>=it.qty).length;
+  const stageLabel=state.tab==='request'?'Request Produksi':state.tab==='ready'?'Marketing Ready':'Taken';
+  return `<div class="item-card">
+    <div class="item-head" data-toggle="${it.id}">
+      <div><div class="spk">${esc(it.spk)}</div><div class="meta">XFD ${fmtDate(it.xfd)} · QTY ${it.qty}</div></div>
+      <div class="stages-mini"><span class="stat-pill pending">${stageLabel}</span><span class="stat-pill ${readyCount===4?'ok':'partial'}">Ready ${readyCount}/4</span><span class="stat-pill ${takenCount===4?'ok':'pending'}">Taken ${takenCount}/4</span>${p.canDeleteItem?`<button class="del-spk-btn" data-del-item="${it.id}" title="Hapus request">Hapus</button>`:''}</div>
+    </div>
+    <div class="item-body ${isOpen?'open':''}">${isOpen?renderItemDetail(it,p):''}</div>
+  </div>`;
+}
+
+function renderItemDetail(it,p){
+  function materialProgress(history){
+    return MATERIALS.map(material=>{
+      const qty=matSum(history,material);
+      const pct=Math.min(100,it.qty>0?qty/it.qty*100:0);
+      return `<div class="mat-prog-row"><span class="mat-badge ip">${material}</span><div style="flex:1;min-width:0"><div style="font-size:11px;color:var(--text2);text-align:right">${qty} / ${it.qty}</div><div class="kprog-track"><div class="kprog-fill ${qty>=it.qty?'gn':'am'}" style="width:${pct}%"></div></div></div></div>`;
+    }).join('');
+  }
+  function historyRows(history){
+    return history.length?history.map(h=>`<div class="hist-row"><span>${esc(h.material||'Material lama')} · ${fmtDate(h.date)} · ${esc(h.pic||h.by)}${h.notes?` · ${esc(h.notes)}`:''}</span><span>+${h.qty}</span></div>`).join(''):'<div style="font-size:12px;color:var(--text2);margin:8px 0">Belum ada pencatatan</div>';
+  }
+  function entryForm(prefix,canEdit){
+    if(!canEdit)return '<div class="locked">Hanya Marketing atau Master</div>';
+    return `<div class="mat-form"><div class="mat-row"><select id="${prefix}-mat-${it.id}">${MATERIALS.map(material=>`<option value="${material}">${material}</option>`).join('')}</select><input type="number" min="1" placeholder="Qty" id="${prefix}-qty-${it.id}"/><input type="date" value="${todayStr()}" id="${prefix}-date-${it.id}"/><input type="text" placeholder="PIC" id="${prefix}-pic-${it.id}"/><button class="btn sm" data-add-${prefix}="${it.id}">Simpan</button></div><div class="mat-notes-row"><input type="text" placeholder="Catatan (opsional)" id="${prefix}-notes-${it.id}"/></div></div>`;
+  }
+  return `<div class="stage-grid">
+    <div class="stage-box"><h4>Marketing Ready</h4>${materialProgress(it.whReady.history)}${historyRows(it.whReady.history)}${entryForm('wh',p.canEditWhReady)}</div>
+    <div class="stage-box"><h4>Taken</h4>${materialProgress(it.pengambilan.history)}${historyRows(it.pengambilan.history)}${entryForm('peng',p.canEditPengambilan)}</div>
+  </div>`;
+}
+
 function attachEvents(){
   const app = document.getElementById('app');
 
@@ -725,7 +769,7 @@ function attachEvents(){
         state.loading = true; render();
         await loadItems(); render();
       }catch(e){
-        state.loginErr = e.message || 'Passcode salah.'; render();
+        state.loginErr = e.message || 'Password salah.'; render();
       }
     };
   }
@@ -739,7 +783,7 @@ function attachEvents(){
 
   const logout = document.getElementById('logoutBtn');
   if(logout) logout.onclick = ()=>{
-    state.role=null; state.token=null; state.tab='dashboard';
+    state.role=null; state.token=null; state.tab='request';
     localStorage.removeItem('gudang_role'); localStorage.removeItem('gudang_token');
     render();
   };
@@ -774,7 +818,7 @@ function attachEvents(){
       const tbody = document.getElementById('bulkTbody');
       const idx = tbody.rows.length;
       const tr = document.createElement('tr');
-      tr.innerHTML = `<td class="col-no">${idx+1}</td><td><input type="text" class="bulk-spk" placeholder="SPK-001" /></td><td class="col-xfd"><input type="date" class="bulk-xfd" value="${todayStr()}" /></td><td class="col-qty"><input type="number" class="bulk-qty" min="1" placeholder="1000" /></td><td class="col-stage"><select class="bulk-stage"><option value="planning">Planning</option><option value="gudang">Gudang (WH Siap)</option></select></td><td class="col-del"><button class="del-row-btn" type="button">✕</button></td>`;
+      tr.innerHTML = `<td class="col-no">${idx+1}</td><td><input type="text" class="bulk-spk" placeholder="SPK-001" /></td><td class="col-xfd"><input type="date" class="bulk-xfd" value="${todayStr()}" /></td><td class="col-qty"><input type="number" class="bulk-qty" min="1" placeholder="1000" /></td><td class="col-del"><button class="del-row-btn" type="button">✕</button></td>`;
       tr.querySelector('.del-row-btn').onclick = () => delBulkRow(tr);
       tbody.appendChild(tr);
       tr.querySelector('.bulk-spk').focus();
@@ -793,9 +837,7 @@ function attachEvents(){
         const spk = tr.querySelector('.bulk-spk').value.trim();
         const xfd = tr.querySelector('.bulk-xfd').value;
         const qty = Number(tr.querySelector('.bulk-qty').value);
-        const stageEl = tr.querySelector('.bulk-stage');
-        const stage = stageEl ? stageEl.value : 'planning';
-        if(spk && xfd && qty>0) rows.push({spk,xfd,qty,stage});
+        if(spk && xfd && qty>0) rows.push({spk,xfd,qty});
       });
       if(rows.length===0){ showToast('Minimal 1 baris SPK harus diisi.'); return; }
       saveBulkBtn.disabled=true; saveBulkBtn.textContent='Menyimpan...';
@@ -916,6 +958,10 @@ function delBulkRow(tr){
 }
 
 (async function init(){
+  if(state.role && state.role!=='VIEW' && !ROLE_INFO[state.role]){
+    state.role=null; state.token=null;
+    localStorage.removeItem('gudang_role'); localStorage.removeItem('gudang_token');
+  }
   if(state.role){
     await loadItems();
   } else {
