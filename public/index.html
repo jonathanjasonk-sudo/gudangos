@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Purchasing</title>
+<title>Marketing System</title>
 <style>
   :root{
     --navy:#1C2333; --navy2:#252E45; --amber:#F5A623; --amber-d:#8A5A0A;
@@ -394,7 +394,7 @@ function renderLogin(){
   return `
   <div class="login-wrap">
     <div class="login-card">
-      <h1>Purchasing</h1>
+      <h1>Marketing System</h1>
       <div class="login-sub">Pilih akun untuk masuk</div>
       <div class="role-grid">
         ${Object.keys(ROLE_INFO).map(k=>`
@@ -416,8 +416,8 @@ function renderMain(){
   return `
   <div class="topbar">
     <div class="brand">
-      <div class="badge">P</div>
-      <div><h1>Purchasing</h1><div class="sub">Request Produksi · Marketing Ready · Taken</div></div>
+      <div class="badge">M</div>
+      <div><h1>Marketing System</h1><div class="sub">Request Produksi · Marketing Ready · Taken</div></div>
     </div>
     <div class="who">
       <div class="tag">${state.role==='VIEW' ? 'View only' : ROLE_INFO[state.role].label + ' — ' + ROLE_INFO[state.role].full}</div>

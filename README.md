@@ -1,6 +1,6 @@
-# Purchasing
+# Marketing System
 
-Aplikasi tracking request produksi dan material purchasing dengan tiga bagian: Request Produksi, Marketing Ready, dan Taken.
+Aplikasi tracking request produksi dan material dengan tiga bagian: Request Produksi, Marketing Ready, dan Taken.
 Backend: Node.js + Express + PostgreSQL. Frontend: HTML/JS biasa (tanpa build step).
 
 ## Cara deploy ke Railway (gratis untuk mulai, tidak perlu install apa-apa di komputer)
