@@ -5,17 +5,21 @@ const MATERIALS = ['Shoe Box', 'Size Label', 'Karton Label', 'Marking'];
 function materialQty(history, material) {
   return history.filter(entry => entry.material === material).reduce((total, entry) => total + Number(entry.qty), 0);
 }
-function materialsComplete(history, qty) {
-  return MATERIALS.every(material => materialQty(history, material) >= Number(qty));
+function itemMaterials(item) {
+  return Array.isArray(item.materials) && item.materials.length ? item.materials : MATERIALS;
 }
-function hasMaterialProgress(history) {
-  return MATERIALS.some(material => materialQty(history, material) > 0);
+function materialsComplete(history, qty, materials = MATERIALS) {
+  return materials.every(material => materialQty(history, material) >= Number(qty));
+}
+function hasMaterialProgress(history, materials = MATERIALS) {
+  return materials.some(material => materialQty(history, material) > 0);
 }
 function takenCompletionDate(item) {
-  const totals = Object.fromEntries(MATERIALS.map(material => [material, 0]));
+  const materials = itemMaterials(item);
+  const totals = Object.fromEntries(materials.map(material => [material, 0]));
   for (const entry of item.pengambilan.history) {
-    if (MATERIALS.includes(entry.material)) totals[entry.material] += Number(entry.qty);
-    if (MATERIALS.every(material => totals[material] >= Number(item.qty))) return entry.date;
+    if (materials.includes(entry.material)) totals[entry.material] += Number(entry.qty);
+    if (materials.every(material => totals[material] >= Number(item.qty))) return entry.date;
   }
   return null;
 }
@@ -25,9 +29,9 @@ async function buildExportWorkbook(items) {
   workbook.creator = 'Marketing System';
   workbook.created = new Date();
   const sheets = [
-    { name: 'REQ PRODUKSI', items: items.filter(item => !hasMaterialProgress(item.whReady.history) && !hasMaterialProgress(item.pengambilan.history)) },
-    { name: 'MARKETING READY', items: items.filter(item => hasMaterialProgress(item.whReady.history) && !materialsComplete(item.pengambilan.history, item.qty)) },
-    { name: 'TAKEN', items: items.filter(item => hasMaterialProgress(item.pengambilan.history)) }
+    { name: 'REQ PRODUKSI', items: items.filter(item => !hasMaterialProgress(item.whReady.history, itemMaterials(item)) && !hasMaterialProgress(item.pengambilan.history, itemMaterials(item))) },
+    { name: 'MARKETING READY', items: items.filter(item => hasMaterialProgress(item.whReady.history, itemMaterials(item)) && !materialsComplete(item.pengambilan.history, item.qty, itemMaterials(item))) },
+    { name: 'TAKEN', items: items.filter(item => hasMaterialProgress(item.pengambilan.history, itemMaterials(item))) }
   ];
   const materialColumns = MATERIALS.flatMap((material, index) => [
     { header: `${material} Ready`, key: `ready${index}`, width: 16 },
@@ -41,6 +45,7 @@ async function buildExportWorkbook(items) {
     worksheet.columns = [
       { header: 'SPK', key: 'spk', width: 20 },
       { header: 'Customer', key: 'customer', width: 24 },
+      { header: 'Tanggal Request', key: 'requestDate', width: 20, style: { numFmt: 'dd mmm yyyy' } },
       { header: 'XFD', key: 'xfd', width: 16, style: { numFmt: 'dd mmm yyyy' } },
       { header: 'QTY', key: 'qty', width: 12 },
       { header: 'Status Taken', key: 'takenStatus', width: 18 },
@@ -52,10 +57,12 @@ async function buildExportWorkbook(items) {
     worksheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1C2333' } };
 
     for (const item of sheet.items) {
-      const isTakenComplete = materialsComplete(item.pengambilan.history, item.qty);
+      const materials = itemMaterials(item);
+      const isTakenComplete = materialsComplete(item.pengambilan.history, item.qty, materials);
       const row = {
         spk: item.spk,
         customer: item.customer,
+        requestDate: item.createdAt ? new Date(item.createdAt) : null,
         xfd: item.xfd,
         qty: Number(item.qty),
         takenStatus: isTakenComplete ? 'Lengkap' : 'Dalam proses',

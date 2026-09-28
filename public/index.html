@@ -155,10 +155,16 @@
   .bulk-wrap{background:var(--card);border:1px solid var(--amber);border-radius:12px;padding:16px;margin-bottom:16px;}
   .bulk-wrap h3{font-size:15px;color:var(--navy);margin-bottom:12px;font-family:'Barlow Condensed';}
   .bulk-table{width:100%;border-collapse:collapse;font-size:13px;}
+  .bulk-table-wrap{overflow-x:auto;}
+  .bulk-table{min-width:900px;}
   .bulk-table th{text-align:left;padding:5px 8px;font-size:11px;color:var(--text2);font-weight:600;border-bottom:1px solid var(--line);text-transform:uppercase;}
   .bulk-table td{padding:3px 6px;vertical-align:middle;}
   .bulk-table input[type=text],.bulk-table input[type=number]{width:100%;padding:6px 8px;border:1px solid var(--line);border-radius:6px;font-size:13px;}
   .bulk-table input[type=date]{padding:6px 8px;border:1px solid var(--line);border-radius:6px;font-size:13px;width:100%;}
+  .bulk-table input[type=checkbox]{accent-color:var(--amber-d);}
+  .bulk-materials{display:grid;grid-template-columns:1fr 1fr;gap:4px 8px;min-width:160px;}
+  .bulk-materials label{display:flex;align-items:center;gap:4px;font-size:11px;white-space:nowrap;}
+  .request-date-label{font-size:12px;color:var(--text2);margin:-4px 0 10px;}
   .col-no{width:28px;text-align:center;color:var(--text2);font-size:12px;}
   .col-qty{width:90px;}
   .col-xfd{width:140px;}
@@ -315,6 +321,90 @@ const ROLE_INFO = {
   MASTER: {label:'Master', full:'Akses penuh'}
 };
 const MATERIALS = ['Shoe Box', 'Size Label', 'Karton Label', 'Marking'];
+const CUSTOMERS = [
+  'NB-UAE-GULF AGENCY COMPANY(DUBAI)LLC阿聯酋',
+  'NB-NEW BALANCE-NEW ZEALAND新西蘭',
+  'NB-NEW BALANCE-NETHERLANDS DSV (VENLO)荷蘭',
+  'NB-NEW BALANCE-UK-FOOT ASYLUM LTD英國',
+  'NB-NEW BALANCE-THAILAND-MAPACTIVE泰國',
+  'NB-NEW BALANCE-KOREA CO韓國',
+  'NB-NEW BALANCE-ITALY SRL意大利',
+  'NB-US-ATHLETICS美国',
+  'NB-NEW BALANCE-MALAYSIA-ATHLETIC SHOE S.B.馬來西亞',
+  'NB-NEW BALANCE-US EURO STAR, INC美国',
+  'NB-NEW BALANCE-GREECE希臘',
+  'NB-NEW BALANCE-GERMANY-SNIPES德國',
+  'NB-NEW BALANCE-GERMANY-ZALANDO.德國',
+  'NB-NEW BALANCE-SINGAPORE新加坡',
+  'NB-NEW BALANCE-AUSTRALIA澳大利亞',
+  'NB-NEW BALANCE-THAILAND JD THAILAND (FOR MALAYSIA)泰國',
+  'NB-UAE-KLNME FREIGHT SERVICES (001)阿聯酋',
+  'NB-NEW BALANCE-NETHERLANDS-FOOTLOCKER EUROPE D.C荷蘭',
+  'NB-NEW BALANCE-UK FLE UK-CEVA LOGISTICS英國',
+  'NB-NEW BALANCE-SINGAPORE MAA新加坡',
+  'NB-NEW BALANCE-UK (DSV SOLUTIONS LTD)英國',
+  'NB-NEW BALANCE-UK-OFFICE英國',
+  'NB-NEW BALANCE-US CHAMPS WAREHOUSE美国',
+  'NB-NEW BALANCE-KOREA(E.LAND WORLD LTD)韓國',
+  'NB-NEW BALANCE-US-KIDSFOOTLOCKER, INC. DC 美国',
+  'NB-US-WHSE..#: 86美国',
+  'NB-NEW BALANCE-US-EAST COAST DC#83美国',
+  'NB-NEW BALANCE-NETHERLANDS-JD SPORTS FASHION荷蘭',
+  'NB-NEW BALANCE-HONG KONG香港',
+  'NB-NEW BALANCE-US-JOURNEYS RETAIL-0802318美国',
+  'NB-NEW BALANCE-PHILIPPINES PLANET SPORTS INC.菲律賓',
+  'NB-NEW BALANCE-INDONESIA-PT. MAP AKTIF印尼',
+  'NB-NEW BALANCE-CHILE-DEPORTES-SPARTA智利',
+  'NB-NEW BALANCE-PANAMA巴拿马',
+  'NB-NEW BALANCE-BRAZIL巴西',
+  'NB-NEW BALANCE-UKRAINE-FORMAT-K英國',
+  'NB-NEW BALANCE-UK-JD SPORT FASHION PLC英國',
+  'NB-NEW BALANCE-CANADA加拿大',
+  'NB-NEW BALANCE-FRANCE-COURIR法國',
+  'NB-NEW BALANCE-UK-SCHUH LTD英國',
+  'NB-IRELAND-JOHN DAVID SPORTS FASHION (IRL) LTD爱尔兰',
+  'NB-NEW BALANCE-POLAND ZOO SP波蘭',
+  'NB-NEW BALANCE-GERMANY ASOS DE德國',
+  'NB-NEW BALANCE-UK-ASOS英國',
+  'NB-NEW BALANCE-TAIWAN臺灣',
+  'NB-NEW BALANCE-ISRAEL SILON SPORTS以色列',
+  'NB-NEW BALANCE-SWITZERLAND - CHRIS SPORTS AG瑞士',
+  'NB-NEW BALANCE-US-FOOT LOCKER, INC. DC美国',
+  'NB-NEW BALANCE-US FINISH LINE DISTRIBUTION CO INC美国',
+  'NB-NEW BALANCE-SOUTH AFRICA-NBSA(PTY)LTD南非',
+  'NB-NEW BALANCE-CANADA CHAMPS SPORTS加拿大',
+  'NB-NEW BALANCE-CANADA-FOOTLOCKER CANADA(DIV76)加拿大',
+  'NB-SINGAPORE-STORES SPECIALISTS INC. (FOR NBSG)新加坡',
+  'NB-NEW BALANCE-US-ACADEMY CORPORATION.美国',
+  'NB-NEW BALANCE-US-DUNHAMS MARION DIST CTR美国',
+  'NB-NEW BALANCE-US-DICKS SPORTING GOODS美国',
+  'NB-NEW BALANCE-US-BSN SPORTS美国',
+  'NB-NEW BALANCE-US-BIG 5 CORPORATION美国',
+  'NB-NEW BALANCE-CANADA-FGL SPORTS LTD加拿大',
+  'NB-NEW BALANCE-CANADA-SC GTA DC加拿大',
+  'NB-NEW BALANCE-US-HIBBETT SPORTING GOODS美国',
+  'NB-NEW BALANCE-JAPAN-NBJ日本',
+  'NB-NEW BALANCE-UK-SPORTS DIRECT INTERNATION英國',
+  'NB-NEW BALANCE-CANADA JDSF RETAIL (CANADA) INC加拿大',
+  'NB-NEW BALANCE-KAZAKHSTAN哈萨克斯坦',
+  'NB-NEW BALANCE-TURKEY土耳其',
+  'NB-NEW BALANCE-ATLETICO-DE-MEXICO-S.DE.R.L.DE墨西哥',
+  'NB-NEW BALANCE-SERBIA SPORTVISION D.O.O BEOGRAD塞尔维亚',
+  'NB-NEW BALANCE-CHINA UAE C/O中国',
+  'NB-NEW BALANCE-ARGENTINA-DASS ELDORADO阿根廷',
+  'NB-NEW BALANCE-URUGUAY-VANALIM乌拉圭',
+  'NB-NEW BALANCE-CANADA LITTLE BURGUNDY 3020058加拿大',
+  'NB-NEW BALANCE-CANADA-ARLIES SPORT SHOP DOWNTOWN加拿大',
+  "NB-NEW BALANCE-CANADA-JOURNEY'S加拿大",
+  'NB-NEW BALANCE-CANADA-SOFTMOC 901加拿大',
+  "NB-NEW BALANCE-CANADA-BROWN'S SHOES INC加拿大",
+  'NB-NEW BALANCE-UK-ELF INTERNATIONAL LTD.英國',
+  'NB-NEW BALANCE-CHINA中国',
+  'NB-NEW BALANCE-GERMANY-ABOUT YOU SE & CO. KG德國',
+  'NB-NEW BALANCE-US-JDFL MH美国',
+  'NB-NEW BALANCE-US-ZAPPOS (ABE2)美国',
+  'NB-NEW BALANCE-PARAGUAY-OPTIMA-S.A.巴拉圭'
+];
 
 let state = {
     role: localStorage.getItem('gudang_role') || null,
@@ -372,17 +462,21 @@ function matSum(history, mat){
   if(mat==='IP') return history.filter(h=>!h.material||h.material==='IP').reduce((a,h)=>a+Number(h.qty),0);
   return history.filter(h=>h.material===mat).reduce((a,h)=>a+Number(h.qty),0);
 }
-function materialsComplete(history, qty){
-  return MATERIALS.every(material=>matSum(history,material)>=Number(qty));
+function itemMaterials(item){
+  return Array.isArray(item.materials)&&item.materials.length?item.materials:MATERIALS;
 }
-function hasMaterialProgress(history){
-  return MATERIALS.some(material=>matSum(history,material)>0);
+function materialsComplete(history, qty, materials=MATERIALS){
+  return materials.every(material=>matSum(history,material)>=Number(qty));
+}
+function hasMaterialProgress(history, materials=MATERIALS){
+  return materials.some(material=>matSum(history,material)>0);
 }
 function takenCompletionDate(item){
-  const totals=Object.fromEntries(MATERIALS.map(material=>[material,0]));
+  const materials=itemMaterials(item);
+  const totals=Object.fromEntries(materials.map(material=>[material,0]));
   for(const entry of item.pengambilan.history){
-    if(MATERIALS.includes(entry.material)) totals[entry.material]+=Number(entry.qty);
-    if(MATERIALS.every(material=>totals[material]>=Number(item.qty))) return entry.date;
+    if(materials.includes(entry.material)) totals[entry.material]+=Number(entry.qty);
+    if(materials.every(material=>totals[material]>=Number(item.qty))) return entry.date;
   }
   return null;
 }
@@ -459,9 +553,9 @@ function renderMain(){
   </div>
   <div class="tabs">
     <div class="tab ${state.tab==='dashboard'?'active':''}" data-tab="dashboard">Dashboard</div>
-    <div class="tab ${state.tab==='request'?'active':''}" data-tab="request">Request Produksi <b>${state.items.filter(it=>!hasMaterialProgress(it.whReady.history)&&!hasMaterialProgress(it.pengambilan.history)).length}</b></div>
-    <div class="tab ${state.tab==='ready'?'active':''}" data-tab="ready">Marketing Ready <b>${state.items.filter(it=>hasMaterialProgress(it.whReady.history)&&!materialsComplete(it.pengambilan.history,it.qty)).length}</b></div>
-    <div class="tab ${state.tab==='taken'?'active':''}" data-tab="taken">Taken <b>${state.items.filter(it=>hasMaterialProgress(it.pengambilan.history)&&!materialsComplete(it.pengambilan.history,it.qty)).length}</b></div>
+    <div class="tab ${state.tab==='request'?'active':''}" data-tab="request">Request Produksi <b>${state.items.filter(it=>!hasMaterialProgress(it.whReady.history,itemMaterials(it))&&!hasMaterialProgress(it.pengambilan.history,itemMaterials(it))).length}</b></div>
+    <div class="tab ${state.tab==='ready'?'active':''}" data-tab="ready">Marketing Ready <b>${state.items.filter(it=>hasMaterialProgress(it.whReady.history,itemMaterials(it))&&!materialsComplete(it.pengambilan.history,it.qty,itemMaterials(it))).length}</b></div>
+    <div class="tab ${state.tab==='taken'?'active':''}" data-tab="taken">Taken <b>${state.items.filter(it=>hasMaterialProgress(it.pengambilan.history,itemMaterials(it))&&!materialsComplete(it.pengambilan.history,it.qty,itemMaterials(it))).length}</b></div>
   </div>
   ${state.loading ? '<div class="empty">Memuat data...</div>' : (state.tab==='dashboard' ? renderDashboard(p) : renderStage(state.tab,p))}
   `;
@@ -471,7 +565,8 @@ function renderStage(stage,p){
   const titles={request:'Request Produksi',ready:'Marketing Ready',taken:'Taken'};
   const query=state.search.toLowerCase().trim();
   const items=state.items.filter(it=>{
-    const matches=stage==='request'?!hasMaterialProgress(it.whReady.history)&&!hasMaterialProgress(it.pengambilan.history):stage==='ready'?hasMaterialProgress(it.whReady.history)&&!materialsComplete(it.pengambilan.history,it.qty):hasMaterialProgress(it.pengambilan.history)&&!materialsComplete(it.pengambilan.history,it.qty);
+    const materials=itemMaterials(it);
+    const matches=stage==='request'?!hasMaterialProgress(it.whReady.history,materials)&&!hasMaterialProgress(it.pengambilan.history,materials):stage==='ready'?hasMaterialProgress(it.whReady.history,materials)&&!materialsComplete(it.pengambilan.history,it.qty,materials):hasMaterialProgress(it.pengambilan.history,materials)&&!materialsComplete(it.pengambilan.history,it.qty,materials);
     return matches&&(!query||it.spk.toLowerCase().includes(query));
   });
   return `<div class="toolbar"><input type="text" id="searchBox" placeholder="Cari SPK..." value="${esc(state.search)}" />${stage==='request'&&p.canAddItem?`<button class="btn amber" id="toggleAdd">${state.addOpen?'Tutup':'+ Request Produksi'}</button>`:''}</div>
@@ -482,7 +577,7 @@ function renderStage(stage,p){
 
 function renderDashboardMaterialProgress(it){
   const total=Number(it.qty)||0;
-  const rows=MATERIALS.map(material=>{
+  const rows=itemMaterials(it).map(material=>{
     const ready=matSum(it.whReady.history,material);
     const taken=matSum(it.pengambilan.history,material);
     const readyPct=total?Math.min(100,ready/total*100):0;
@@ -500,12 +595,12 @@ function renderDashboard(){
   const query=(state.dashSearch||'').toLowerCase().trim();
   const items=state.items.filter(it=>!query||it.spk.toLowerCase().includes(query));
   const stages=[
-    {key:'request',title:'Request Produksi',cls:'col-antrian',items:items.filter(it=>!hasMaterialProgress(it.whReady.history)&&!hasMaterialProgress(it.pengambilan.history))},
-    {key:'ready',title:'Marketing Ready',cls:'col-whparsial',items:items.filter(it=>hasMaterialProgress(it.whReady.history)&&!materialsComplete(it.pengambilan.history,it.qty))},
-    {key:'taken',title:'Taken',cls:'col-whok',items:items.filter(it=>hasMaterialProgress(it.pengambilan.history)&&!materialsComplete(it.pengambilan.history,it.qty))}
+    {key:'request',title:'Request Produksi',cls:'col-antrian',items:items.filter(it=>!hasMaterialProgress(it.whReady.history,itemMaterials(it))&&!hasMaterialProgress(it.pengambilan.history,itemMaterials(it)))},
+    {key:'ready',title:'Marketing Ready',cls:'col-whparsial',items:items.filter(it=>hasMaterialProgress(it.whReady.history,itemMaterials(it))&&!materialsComplete(it.pengambilan.history,it.qty,itemMaterials(it)))},
+    {key:'taken',title:'Taken',cls:'col-whok',items:items.filter(it=>hasMaterialProgress(it.pengambilan.history,itemMaterials(it))&&!materialsComplete(it.pengambilan.history,it.qty,itemMaterials(it)))}
   ];
-  const completedTaken=items.filter(it=>materialsComplete(it.pengambilan.history,it.qty));
-  const complete=state.items.filter(it=>materialsComplete(it.pengambilan.history,it.qty)).length;
+  const completedTaken=items.filter(it=>materialsComplete(it.pengambilan.history,it.qty,itemMaterials(it)));
+  const complete=state.items.filter(it=>materialsComplete(it.pengambilan.history,it.qty,itemMaterials(it))).length;
   return `<div class="toolbar"><input type="text" id="dashSearch" placeholder="Cari SPK di dashboard..." value="${esc(query)}" autocomplete="off" />${perm().canAddItem?'<button class="btn amber" id="dashboardAddRequest">+ Request Produksi</button>':''}<button class="btn ghost" id="exportExcel" title="Unduh tiga sheet Excel">↓ Export Excel</button></div>
     <div class="summary-cards">
       <div class="scard"><div class="num">${state.items.length}</div><div class="lbl">Total Request</div></div>
@@ -564,25 +659,29 @@ function renderBulkForm(){
     <tr>
       <td class="col-no">${i+1}</td>
       <td><input type="text" class="bulk-spk" placeholder="SPK-001" /></td>
-      <td class="col-customer"><input type="text" class="bulk-customer" placeholder="Customer" required /></td>
+      <td class="col-customer"><input type="text" class="bulk-customer" placeholder="Customer" list="customerSuggestions" required /></td>
       <td class="col-xfd"><input type="date" class="bulk-xfd" value="${d}" /></td>
       <td class="col-qty"><input type="number" class="bulk-qty" min="1" placeholder="1000" /></td>
+      <td><div class="bulk-materials">${MATERIALS.map(material=>`<label><input type="checkbox" class="request-material" value="${material}">${material}</label>`).join('')}</div></td>
       <td class="col-del"><button class="del-row-btn" type="button">✕</button></td>
     </tr>`).join('');
   return `
   <div class="bulk-wrap" id="bulkWrap">
     <h3>Tambah SPK Baru (bisa banyak sekaligus)</h3>
-    <table class="bulk-table">
+    <div class="request-date-label">Tanggal request: ${fmtDate(d)} (otomatis saat disimpan)</div>
+    <datalist id="customerSuggestions">${CUSTOMERS.map(customer=>`<option value="${esc(customer)}"></option>`).join('')}</datalist>
+    <div class="bulk-table-wrap"><table class="bulk-table">
       <thead><tr>
         <th class="col-no">#</th>
         <th>SPK</th>
         <th class="col-customer">Customer</th>
         <th class="col-xfd">XFD (Tanggal)</th>
         <th class="col-qty">QTY</th>
+        <th>Material Dibutuhkan</th>
         <th class="col-del"></th>
       </tr></thead>
       <tbody id="bulkTbody">${rows}</tbody>
-    </table>
+    </table></div>
     <div class="bulk-actions">
       <button class="btn ghost sm" id="addBulkRow">+ Tambah Baris</button>
       <button class="btn amber" id="saveBulkItems">Simpan Semua</button>
@@ -752,13 +851,14 @@ function renderItemDetail(it,p,ws,ps){
 
 function renderItemCard(it,p){
   const isOpen=state.expanded===it.id;
-  const readyCount=MATERIALS.filter(material=>matSum(it.whReady.history,material)>=it.qty).length;
-  const takenCount=MATERIALS.filter(material=>matSum(it.pengambilan.history,material)>=it.qty).length;
+  const materials=itemMaterials(it);
+  const readyCount=materials.filter(material=>matSum(it.whReady.history,material)>=it.qty).length;
+  const takenCount=materials.filter(material=>matSum(it.pengambilan.history,material)>=it.qty).length;
   const stageLabel=state.tab==='request'?'Request Produksi':state.tab==='ready'?'Marketing Ready':'Taken';
   return `<div class="item-card">
     <div class="item-head" data-toggle="${it.id}">
-      <div><div class="spk">${esc(it.spk)}</div><div class="meta">XFD ${fmtDate(it.xfd)} · QTY ${it.qty}</div></div>
-      <div class="stages-mini"><span class="stat-pill pending">${stageLabel}</span><span class="stat-pill ${readyCount===4?'ok':'partial'}">Ready ${readyCount}/4</span><span class="stat-pill ${takenCount===4?'ok':'pending'}">Taken ${takenCount}/4</span>${p.canDeleteItem?`<button class="del-spk-btn" data-del-item="${it.id}" title="Hapus request">Hapus</button>`:''}</div>
+      <div><div class="spk">${esc(it.spk)}</div><div class="meta">Request ${fmtDate(it.createdAt)} · XFD ${fmtDate(it.xfd)} · QTY ${it.qty}</div></div>
+      <div class="stages-mini"><span class="stat-pill pending">${stageLabel}</span><span class="stat-pill ${readyCount===materials.length?'ok':'partial'}">Ready ${readyCount}/${materials.length}</span><span class="stat-pill ${takenCount===materials.length?'ok':'pending'}">Taken ${takenCount}/${materials.length}</span>${p.canDeleteItem?`<button class="del-spk-btn" data-del-item="${it.id}" title="Hapus request">Hapus</button>`:''}</div>
     </div>
     <div class="item-body ${isOpen?'open':''}">${isOpen?renderItemDetail(it,p):''}</div>
   </div>`;
@@ -766,7 +866,7 @@ function renderItemCard(it,p){
 
 function renderItemDetail(it,p){
   function materialProgress(history){
-    return MATERIALS.map(material=>{
+    return itemMaterials(it).map(material=>{
       const qty=matSum(history,material);
       const pct=Math.min(100,it.qty>0?qty/it.qty*100:0);
       return `<div class="mat-prog-row"><span class="mat-badge ip">${material}</span><div style="flex:1;min-width:0"><div style="font-size:11px;color:var(--text2);text-align:right">${qty} / ${it.qty}</div><div class="kprog-track"><div class="kprog-fill ${qty>=it.qty?'gn':'am'}" style="width:${pct}%"></div></div></div></div>`;
@@ -777,7 +877,7 @@ function renderItemDetail(it,p){
   }
   function entryForm(prefix,canEdit){
     if(!canEdit)return '<div class="locked">Hanya Marketing atau Master</div>';
-    return `<div class="mat-form"><div class="mat-row"><select id="${prefix}-mat-${it.id}">${MATERIALS.map(material=>`<option value="${material}">${material}</option>`).join('')}</select><input type="number" min="1" placeholder="Qty" id="${prefix}-qty-${it.id}"/><input type="date" value="${todayStr()}" id="${prefix}-date-${it.id}"/><input type="text" placeholder="PIC" id="${prefix}-pic-${it.id}"/><button class="btn sm" data-add-${prefix}="${it.id}">Simpan</button></div><div class="mat-notes-row"><input type="text" placeholder="Catatan (opsional)" id="${prefix}-notes-${it.id}"/></div></div>`;
+    return `<div class="mat-form"><div class="mat-row"><select id="${prefix}-mat-${it.id}">${itemMaterials(it).map(material=>`<option value="${material}">${material}</option>`).join('')}</select><input type="number" min="1" placeholder="Qty" id="${prefix}-qty-${it.id}"/><input type="date" value="${todayStr()}" id="${prefix}-date-${it.id}"/><input type="text" placeholder="PIC" id="${prefix}-pic-${it.id}"/><button class="btn sm" data-add-${prefix}="${it.id}">Simpan</button></div><div class="mat-notes-row"><input type="text" placeholder="Catatan (opsional)" id="${prefix}-notes-${it.id}"/></div></div>`;
   }
   return `<div class="stage-grid">
     <div class="stage-box"><h4>Marketing Ready</h4>${materialProgress(it.whReady.history)}${historyRows(it.whReady.history)}${entryForm('wh',p.canEditWhReady)}</div>
@@ -876,7 +976,7 @@ function attachEvents(){
       const tbody = document.getElementById('bulkTbody');
       const idx = tbody.rows.length;
       const tr = document.createElement('tr');
-      tr.innerHTML = `<td class="col-no">${idx+1}</td><td><input type="text" class="bulk-spk" placeholder="SPK-001" /></td><td class="col-customer"><input type="text" class="bulk-customer" placeholder="Customer" required /></td><td class="col-xfd"><input type="date" class="bulk-xfd" value="${todayStr()}" /></td><td class="col-qty"><input type="number" class="bulk-qty" min="1" placeholder="1000" /></td><td class="col-del"><button class="del-row-btn" type="button">✕</button></td>`;
+      tr.innerHTML = `<td class="col-no">${idx+1}</td><td><input type="text" class="bulk-spk" placeholder="SPK-001" /></td><td class="col-customer"><input type="text" class="bulk-customer" placeholder="Customer" list="customerSuggestions" required /></td><td class="col-xfd"><input type="date" class="bulk-xfd" value="${todayStr()}" /></td><td class="col-qty"><input type="number" class="bulk-qty" min="1" placeholder="1000" /></td><td><div class="bulk-materials">${MATERIALS.map(material=>`<label><input type="checkbox" class="request-material" value="${material}">${material}</label>`).join('')}</div></td><td class="col-del"><button class="del-row-btn" type="button">✕</button></td>`;
       tr.querySelector('.del-row-btn').onclick = () => delBulkRow(tr);
       tbody.appendChild(tr);
       tr.querySelector('.bulk-spk').focus();
@@ -897,12 +997,15 @@ function attachEvents(){
         const customer = tr.querySelector('.bulk-customer').value.trim();
         const xfd = tr.querySelector('.bulk-xfd').value;
         const qty = Number(tr.querySelector('.bulk-qty').value);
+        const materials = [...tr.querySelectorAll('.request-material:checked')].map(input=>input.value);
         if(spk && xfd && qty>0){
           if(!customer) missingCustomer = true;
-          else rows.push({spk,customer,xfd,qty});
+          else if(!materials.length){ showToast(`Pilih minimal satu material untuk ${spk}.`); rows.invalid=true; }
+          else rows.push({spk,customer,xfd,qty,materials});
         }
       });
       if(missingCustomer){ showToast('Customer wajib diisi untuk setiap request.'); return; }
+      if(rows.invalid) return;
       if(rows.length===0){ showToast('Minimal 1 baris SPK harus diisi.'); return; }
       saveBulkBtn.disabled=true; saveBulkBtn.textContent='Menyimpan...';
       try{

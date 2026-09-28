@@ -23,6 +23,7 @@ async function initDb() {
       id TEXT PRIMARY KEY,
       spk TEXT NOT NULL,
       customer TEXT NOT NULL DEFAULT '',
+      materials TEXT[] NOT NULL DEFAULT ARRAY['Shoe Box', 'Size Label', 'Karton Label', 'Marking'],
       xfd DATE NOT NULL,
       qty INTEGER NOT NULL,
       created_at TIMESTAMP DEFAULT now(),
@@ -32,6 +33,7 @@ async function initDb() {
     )
   `);
   await pool.query(`ALTER TABLE items ADD COLUMN IF NOT EXISTS customer TEXT NOT NULL DEFAULT ''`);
+  await pool.query(`ALTER TABLE items ADD COLUMN IF NOT EXISTS materials TEXT[] NOT NULL DEFAULT ARRAY['Shoe Box', 'Size Label', 'Karton Label', 'Marking']`);
   await pool.query(`
     CREATE TABLE IF NOT EXISTS wh_ready_history (
       id SERIAL PRIMARY KEY,
@@ -143,6 +145,7 @@ async function getFullItems() {
     id: it.id,
     spk: it.spk,
     customer: it.customer || '',
+    materials: it.materials || MATERIALS,
     xfd: it.xfd,
     qty: it.qty,
     createdAt: it.created_at,
@@ -182,13 +185,16 @@ app.get('/api/export.xlsx', async (req, res) => {
 });
 
 app.post('/api/items', requirePerm('addItem'), async (req, res) => {
-  const { spk, customer, xfd, qty } = req.body || {};
+  const { spk, customer, materials, xfd, qty } = req.body || {};
   const customerName = typeof customer === 'string' ? customer.trim() : '';
-  if (!spk || !customerName || !xfd || !qty || qty <= 0) return res.status(400).json({ error: 'SPK, Customer, XFD, dan QTY wajib diisi.' });
+  const requestedMaterials = Array.isArray(materials) ? [...new Set(materials)] : [];
+  if (!spk || !customerName || !xfd || !qty || qty <= 0 || requestedMaterials.length === 0 || requestedMaterials.some(material => !MATERIALS.includes(material))) {
+    return res.status(400).json({ error: 'SPK, Customer, XFD, QTY, dan minimal satu material wajib diisi.' });
+  }
   const id = crypto.randomUUID();
   await pool.query(
-    'INSERT INTO items (id, spk, customer, xfd, qty, created_by, planning_done, planning_date) VALUES ($1,$2,$3,$4,$5,$6,true,CURRENT_DATE)',
-    [id, spk, customerName, xfd, qty, req.role]
+    'INSERT INTO items (id, spk, customer, materials, xfd, qty, created_by, planning_done, planning_date) VALUES ($1,$2,$3,$4,$5,$6,$7,true,CURRENT_DATE)',
+    [id, spk, customerName, requestedMaterials, xfd, qty, req.role]
   );
   res.json(await getFullItems());
 });
@@ -200,14 +206,17 @@ app.post('/api/items/bulk', requirePerm('addItem'), async (req, res) => {
     const limited = items.slice(0, 200);
     const missingCustomer = limited.some(item => item.spk && item.xfd && Number(item.qty) > 0 && !String(item.customer || '').trim());
     if (missingCustomer) return res.status(400).json({ error: 'Customer wajib diisi untuk setiap request.' });
+    const missingMaterials = limited.some(item => item.spk && item.xfd && Number(item.qty) > 0 && (!Array.isArray(item.materials) || !item.materials.length || item.materials.some(material => !MATERIALS.includes(material))));
+    if (missingMaterials) return res.status(400).json({ error: 'Pilih minimal satu material yang valid untuk setiap request.' });
     for (const item of limited) {
-      const { spk, customer, xfd, qty } = item;
+      const { spk, customer, materials, xfd, qty } = item;
       if (!spk || !xfd || !qty || Number(qty) <= 0) continue;
       const customerName = String(customer || '').trim();
+      const requestedMaterials = Array.isArray(materials) ? [...new Set(materials)] : [];
       const id = crypto.randomUUID();
       await pool.query(
-        'INSERT INTO items (id, spk, customer, xfd, qty, created_by, planning_done, planning_date) VALUES ($1,$2,$3,$4,$5,$6,true,CURRENT_DATE)',
-        [id, spk, customerName, xfd, Number(qty), req.role]
+        'INSERT INTO items (id, spk, customer, materials, xfd, qty, created_by, planning_done, planning_date) VALUES ($1,$2,$3,$4,$5,$6,$7,true,CURRENT_DATE)',
+        [id, spk, customerName, requestedMaterials, xfd, Number(qty), req.role]
       );
     }
     res.json(await getFullItems());
@@ -227,8 +236,9 @@ app.post('/api/items/:id/wh-ready', requirePerm('whReady'), async (req, res) => 
   if (!Number.isFinite(Number(qty)) || Number(qty) <= 0 || !date || !MATERIALS.includes(material)) {
     return res.status(400).json({ error: 'Qty, tanggal, dan material yang valid wajib diisi.' });
   }
-  const item = (await pool.query('SELECT qty FROM items WHERE id=$1', [req.params.id])).rows[0];
+  const item = (await pool.query('SELECT qty, materials FROM items WHERE id=$1', [req.params.id])).rows[0];
   if (!item) return res.status(404).json({ error: 'Request tidak ditemukan.' });
+  if (!item.materials.includes(material)) return res.status(400).json({ error: 'Material ini tidak diminta pada request.' });
   const used = (await pool.query('SELECT COALESCE(SUM(qty),0)::int AS total FROM wh_ready_history WHERE item_id=$1 AND material=$2', [req.params.id, material])).rows[0].total;
   if (Number(used) + Number(qty) > item.qty) return res.status(400).json({ error: `Qty melebihi sisa material (${item.qty - Number(used)}).` });
   await pool.query('INSERT INTO wh_ready_history (item_id, qty, date, by_role, pic, material, notes) VALUES ($1,$2,$3,$4,$5,$6,$7)', [req.params.id, Number(qty), date, req.role, pic || null, material, notes || null]);
@@ -240,8 +250,9 @@ app.post('/api/items/:id/pengambilan', requirePerm('pengambilan'), async (req, r
   if (!Number.isFinite(Number(qty)) || Number(qty) <= 0 || !date || !MATERIALS.includes(material)) {
     return res.status(400).json({ error: 'Qty, tanggal, dan material yang valid wajib diisi.' });
   }
-  const item = (await pool.query('SELECT qty FROM items WHERE id=$1', [req.params.id])).rows[0];
+  const item = (await pool.query('SELECT qty, materials FROM items WHERE id=$1', [req.params.id])).rows[0];
   if (!item) return res.status(404).json({ error: 'Request tidak ditemukan.' });
+  if (!item.materials.includes(material)) return res.status(400).json({ error: 'Material ini tidak diminta pada request.' });
   const used = (await pool.query('SELECT COALESCE(SUM(qty),0)::int AS total FROM pengambilan_history WHERE item_id=$1 AND material=$2', [req.params.id, material])).rows[0].total;
   if (Number(used) + Number(qty) > item.qty) return res.status(400).json({ error: `Qty melebihi sisa material (${item.qty - Number(used)}).` });
   await pool.query('INSERT INTO pengambilan_history (item_id, qty, date, by_role, pic, material, notes) VALUES ($1,$2,$3,$4,$5,$6,$7)', [req.params.id, Number(qty), date, req.role, pic || null, material, notes || null]);
