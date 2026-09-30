@@ -141,6 +141,10 @@
   .dashboard-mat-fill.ready{background:var(--amber);}
   .dashboard-mat-fill.taken{background:#2563EB;}
   .dashboard-mat-fill.full{background:var(--green);}
+  .dashboard-request-materials{margin-top:8px;padding-top:8px;border-top:1px solid var(--line);}
+  .dashboard-request-heading{font-size:9px;color:var(--text2);font-weight:700;text-transform:uppercase;margin-bottom:6px;}
+  .dashboard-request-list{display:flex;flex-wrap:wrap;gap:5px;}
+  .dashboard-request-list span{background:#EAF5D5;color:#405A1C;border-radius:4px;padding:3px 6px;font-size:10px;font-weight:600;}
   .history-table-wrap{overflow-x:auto;background:#fff;border:1px solid var(--line);border-radius:10px;}
   .history-table{width:100%;border-collapse:collapse;font-size:12px;}
   .history-table th,.history-table td{text-align:left;padding:9px 11px;border-bottom:1px solid var(--line);vertical-align:top;}
@@ -690,6 +694,14 @@ function renderDashboardMaterialProgress(it){
   return `<div class="dashboard-mat-list"><div class="dashboard-mat-heading"><span>Material</span><span>Ready</span><span>Taken</span></div>${rows}</div>`;
 }
 
+function renderDashboardMaterialRequest(it){
+  const materials=itemMaterials(it);
+  return `<div class="dashboard-request-materials">
+    <div class="dashboard-request-heading">Komponen diminta</div>
+    <div class="dashboard-request-list">${materials.map(material=>`<span>${esc(material)}</span>`).join('')}</div>
+  </div>`;
+}
+
 function renderDashboard(){
   const query=(state.dashSearch||'').toLowerCase().trim();
   const items=state.items.filter(it=>!query||it.spk.toLowerCase().includes(query));
@@ -716,7 +728,7 @@ function renderDashboard(){
         ${stage.items.length?stage.items.map(it=>`<div class="kcard" data-goto="${it.id}" data-stage="${stage.key}">
           <div class="kcard-head"><div class="kcard-spk">${esc(it.spk)}</div><span class="kcard-customer" title="Customer: ${esc(it.customer||'Customer belum diisi')}">${esc(it.customer||'Customer belum diisi')}</span></div>
           <div class="kcard-xfd">XFD ${fmtDate(it.xfd)}</div><div class="kcard-qty">QTY ${it.qty}</div>
-          ${stage.key==='request'?'':renderDashboardMaterialProgress(it)}
+          ${stage.key==='request'?renderDashboardMaterialRequest(it):renderDashboardMaterialProgress(it)}
         </div>`).join(''):'<div class="kcol-empty">Belum ada request</div>'}
       </div>`).join('')}
     </div>
