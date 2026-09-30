@@ -60,6 +60,16 @@
   .component-filter{display:flex;align-items:center;gap:8px;color:var(--text2);}
   .component-filter span{font-size:12px;font-weight:600;}
   .component-filter select{min-height:38px;padding:8px 30px 8px 10px;border:1px solid var(--line);border-radius:7px;background:#fff;color:var(--text);font-size:13px;}
+  .component-filter{position:relative;display:block;}
+  .component-filter summary{display:flex;align-items:center;gap:10px;min-height:38px;padding:7px 11px;border:1px solid var(--line);border-radius:7px;background:#fff;color:var(--text);font-size:12px;cursor:pointer;list-style:none;}
+  .component-filter summary::-webkit-details-marker{display:none;}
+  .component-filter summary::after{content:'';width:7px;height:7px;margin-left:2px;border-right:1.5px solid var(--text2);border-bottom:1.5px solid var(--text2);transform:rotate(45deg) translateY(-2px);}
+  .component-filter summary span{color:var(--text2);}
+  .component-filter summary strong{font-size:12px;font-weight:600;}
+  .component-filter-menu{position:absolute;top:calc(100% + 6px);left:0;z-index:20;min-width:200px;padding:6px;background:#fff;border:1px solid var(--line);border-radius:8px;box-shadow:var(--shadow-md);}
+  .component-filter-menu label{display:flex;align-items:center;gap:9px;padding:8px;border-radius:5px;color:var(--text);font-size:12px;cursor:pointer;}
+  .component-filter-menu label:hover{background:#F3F6F2;}
+  .component-filter-menu input{margin:0;accent-color:var(--green);}
   .btn{background:var(--navy);color:#fff;border:none;padding:9px 16px;border-radius:8px;cursor:pointer;font-family:'Barlow Condensed';font-size:15px;font-weight:600;}
   .btn.amber{background:var(--amber);color:#2A1D00;}
   .btn.ghost{background:none;border:1px solid var(--line);color:var(--text);}
@@ -520,7 +530,8 @@ let state = {
   expanded: null,
   search: '',
   dashSearch: '',
-  componentFilter: '',
+  componentFilters: [],
+  componentFilterOpen: false,
   loginRoleSel: null,
   loginErr: '',
   addOpen: false,
@@ -683,15 +694,19 @@ function renderStage(stage,p){
 }
 
 function matchesComponentFilter(it){
-  return !state.componentFilter||itemMaterials(it).includes(state.componentFilter);
+  if(state.role!=='MARKETING'&&state.role!=='MASTER') return true;
+  return !state.componentFilters.length||state.componentFilters.some(material=>itemMaterials(it).includes(material));
 }
 
 function renderComponentFilter(){
   if(state.role!=='MARKETING'&&state.role!=='MASTER') return '';
-  return `<label class="component-filter"><span>Filter komponen</span><select id="componentFilter" aria-label="Filter komponen">
-    <option value="">Semua komponen</option>
-    ${MATERIALS.map(material=>`<option value="${esc(material)}" ${state.componentFilter===material?'selected':''}>${esc(material)}</option>`).join('')}
-  </select></label>`;
+  const summary=state.componentFilters.length===0?'Semua komponen':state.componentFilters.length===1?state.componentFilters[0]:`${state.componentFilters.length} komponen dipilih`;
+  return `<details class="component-filter" ${state.componentFilterOpen?'open':''}>
+    <summary><span>Filter komponen</span><strong>${esc(summary)}</strong></summary>
+    <div class="component-filter-menu" role="group" aria-label="Pilih komponen">
+      ${MATERIALS.map(material=>`<label><input type="checkbox" value="${esc(material)}" ${state.componentFilters.includes(material)?'checked':''}>${esc(material)}</label>`).join('')}
+    </div>
+  </details>`;
 }
 
 function renderDashboardMaterialProgress(it){
@@ -1071,9 +1086,16 @@ function attachEvents(){
       if(d){ d.focus(); d.setSelectionRange(state.dashSearch.length, state.dashSearch.length); }
     };
   }
-  const componentFilter = document.getElementById('componentFilter');
+  const componentFilter = app.querySelector('.component-filter');
   if(componentFilter){
-    componentFilter.onchange = (e)=>{ state.componentFilter=e.target.value; render(); };
+    componentFilter.addEventListener('toggle',()=>{ state.componentFilterOpen=componentFilter.open; });
+    componentFilter.querySelectorAll('input[type="checkbox"]').forEach(input=>{
+      input.onchange=()=>{
+        state.componentFilters=[...componentFilter.querySelectorAll('input:checked')].map(checkbox=>checkbox.value);
+        state.componentFilterOpen=true;
+        render();
+      };
+    });
   }
   const exportExcel = document.getElementById('exportExcel');
   if(exportExcel) exportExcel.onclick = async ()=>{
