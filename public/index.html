@@ -4,6 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Marketing System</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
 <style>
   :root{
     --navy:#1C2333; --navy2:#252E45; --amber:#F5A623; --amber-d:#8A5A0A;
@@ -308,6 +311,102 @@
   .del-spk-btn{transition:.15s;}
   /* Empty */
   .empty{font-size:14px;padding:60px 20px;}
+
+  /* Refined warehouse dashboard */
+  :root{
+    --navy:#18332F; --navy2:#254842; --amber:#C8F169; --amber-d:#405A1C;
+    --green:#258B66; --green-bg:#E5F4ED; --green-d:#176347;
+    --red:#D6534F; --red-bg:#FCECEA; --red-d:#9B3431;
+    --gray:#71817C; --line:#E0E8E3; --bg:#F3F6F2; --card:#FFFFFF;
+    --text:#1C302B; --text2:#6D7D77;
+    --shadow-sm:0 2px 8px rgba(24,51,47,.055);
+    --shadow-md:0 10px 26px rgba(24,51,47,.11);
+    --shadow-lg:0 20px 52px rgba(10,31,27,.24);
+  }
+  *{letter-spacing:0 !important;}
+  body{
+    font-family:'DM Sans',sans-serif;
+    background-color:var(--bg);
+    background-image:radial-gradient(rgba(24,51,47,.07) .7px,transparent .7px);
+    background-size:18px 18px;
+  }
+  h1,h2,h3,.brand h1,.brand .badge,.who .tag,.tab,.btn,.item-head .spk,.kcard-spk,.selesai-spk{
+    font-family:'Manrope','DM Sans',sans-serif;
+  }
+  .app{max-width:1440px;padding:26px 30px 40px;}
+  .topbar{
+    background:linear-gradient(120deg,#18332F 0%,#28534A 100%);
+    border-radius:12px;padding:17px 22px;margin-bottom:20px;
+    box-shadow:0 8px 22px rgba(24,51,47,.16);
+  }
+  .brand{gap:13px;}
+  .brand .badge{width:42px;height:42px;border-radius:10px;background:var(--amber);color:var(--navy);font-size:17px;}
+  .brand h1{font-size:19px;font-weight:800;}
+  .brand .sub{color:#B8CDC5;font-size:11px;margin-top:3px;}
+  .who .tag{background:rgba(200,241,105,.13);color:#D7F79C;border-color:rgba(200,241,105,.24);}
+  .who button{border-radius:7px;}
+  .tabs{padding:4px;border-radius:9px;margin-bottom:22px;}
+  .tab{padding:9px 16px;border-radius:7px;font-size:13px;white-space:nowrap;}
+  .tab b{display:inline-grid;place-items:center;min-width:20px;height:20px;margin-left:5px;padding:0 5px;border-radius:6px;background:rgba(24,51,47,.08);font-size:11px;}
+  .tab.active b{background:rgba(255,255,255,.16);}
+  .summary-cards{grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-bottom:30px;}
+  .scard{border:1px solid rgba(24,51,47,.045);border-radius:10px;padding:19px 20px;}
+  .scard::before{width:3px;border-radius:0;}
+  .scard .num{font-family:'Manrope',sans-serif;font-size:32px;font-weight:800;color:var(--navy);}
+  .scard .lbl{font-size:12px;}
+  .pipeline-title{color:var(--navy);font-size:12px;margin-bottom:13px;}
+  .pipeline-title::before{width:4px;height:16px;background:var(--green);}
+  .kanban{gap:14px;}
+  .kcol{background:rgba(226,234,228,.82);border-radius:10px;padding:12px;border-top-width:3px;}
+  .col-antrian{border-top-color:#8A9B94;}
+  .col-whparsial{border-top-color:#99C94A;}
+  .col-whok{border-top-color:#398E83;}
+  .col-selesai{border-top-color:var(--green);}
+  .col-antrian .kcol-badge{background:#DCE5E0;color:#35544A;}
+  .col-whparsial .kcol-badge{background:#EAF5D5;color:#4B681F;}
+  .col-whok .kcol-badge{background:#DDEFEA;color:#23675F;}
+  .col-selesai .kcol-badge{background:var(--green-bg);color:var(--green-d);}
+  .kcard{border-radius:8px;padding:12px;border-color:rgba(24,51,47,.055);}
+  .kcard:hover{border-color:#9BC34A;}
+  .kcard-customer{background:#F0F4F1;border-radius:4px;}
+  .btn{border-radius:7px;box-shadow:none !important;}
+  .btn.amber{background:var(--amber);color:#26351A;}
+  .btn.amber:hover{background:#B7E45C;}
+  .dash-searchbar input,.toolbar input[type=text]{border-radius:7px;box-shadow:none;}
+  input,select,button{font-family:'DM Sans',sans-serif;}
+  :focus-visible{outline:3px solid rgba(57,142,131,.35);outline-offset:2px;}
+  .item-card,.scard,.selesai-card{border-radius:9px;}
+  .item-card:hover{border-color:#CAD9CF;}
+  .stage-box{border-radius:8px;}
+  .login-wrap{min-height:calc(100vh - 52px);background:none;}
+  .login-card{background:linear-gradient(145deg,#18332F,#28534A);border-radius:12px;padding:38px 40px;}
+  .login-card h1{font-family:'Manrope',sans-serif;color:var(--amber);font-size:26px;}
+  .login-card input{border-radius:7px;}
+  .login-card button.go{font-family:'Manrope',sans-serif;background:var(--amber);border-radius:7px;}
+  @media(max-width:760px){
+    .app{padding:14px 14px 28px;}
+    .topbar{padding:14px;border-radius:9px;align-items:flex-start;gap:12px;}
+    .brand{align-items:flex-start;}
+    .brand .sub{max-width:210px;line-height:1.4;}
+    .who{gap:7px;flex-direction:column;align-items:flex-end;}
+    .who .tag{font-size:11px;padding:5px 8px;}
+    .tabs{display:flex;max-width:100%;overflow-x:auto;margin-right:-2px;}
+    .tab{padding:9px 12px;}
+    .summary-cards{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin-bottom:24px;}
+    .scard{padding:15px 14px;}
+    .scard .num{font-size:28px;}
+  }
+  @media(max-width:420px){
+    .app{padding:10px 10px 22px;}
+    .topbar{padding:12px 10px;}
+    .brand .badge{width:36px;height:36px;}
+    .brand h1{font-size:15px;}
+    .brand .sub{font-size:10px;max-width:170px;}
+    .who .tag{max-width:120px;text-align:center;}
+    .who button{font-size:11px;padding:6px 9px;}
+    .summary-cards{grid-template-columns:repeat(2,minmax(0,1fr));}
+    .scard .lbl{font-size:10px;}
+  }
 </style>
 </head>
 <body>
