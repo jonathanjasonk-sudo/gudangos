@@ -57,6 +57,9 @@
   .alert-row .spk{font-weight:600;color:var(--red-d);}
   .toolbar{display:flex;gap:10px;margin-bottom:14px;align-items:center;flex-wrap:wrap;}
   .toolbar input[type=text]{padding:9px 12px;border:1px solid var(--line);border-radius:8px;font-size:13.5px;min-width:180px;}
+  .component-filter{display:flex;align-items:center;gap:8px;color:var(--text2);}
+  .component-filter span{font-size:12px;font-weight:600;}
+  .component-filter select{min-height:38px;padding:8px 30px 8px 10px;border:1px solid var(--line);border-radius:7px;background:#fff;color:var(--text);font-size:13px;}
   .btn{background:var(--navy);color:#fff;border:none;padding:9px 16px;border-radius:8px;cursor:pointer;font-family:'Barlow Condensed';font-size:15px;font-weight:600;}
   .btn.amber{background:var(--amber);color:#2A1D00;}
   .btn.ghost{background:none;border:1px solid var(--line);color:var(--text);}
@@ -517,6 +520,7 @@ let state = {
   expanded: null,
   search: '',
   dashSearch: '',
+  componentFilter: '',
   loginRoleSel: null,
   loginErr: '',
   addOpen: false,
@@ -670,12 +674,24 @@ function renderStage(stage,p){
   const items=state.items.filter(it=>{
     const materials=itemMaterials(it);
     const matches=stage==='request'?!hasMaterialProgress(it.whReady.history,materials)&&!hasMaterialProgress(it.pengambilan.history,materials):stage==='ready'?hasMaterialProgress(it.whReady.history,materials)&&!materialsComplete(it.pengambilan.history,it.qty,materials):hasMaterialProgress(it.pengambilan.history,materials)&&!materialsComplete(it.pengambilan.history,it.qty,materials);
-    return matches&&(!query||it.spk.toLowerCase().includes(query));
+    return matches&&(!query||it.spk.toLowerCase().includes(query))&&matchesComponentFilter(it);
   });
-  return `<div class="toolbar"><input type="text" id="searchBox" placeholder="Cari SPK..." value="${esc(state.search)}" />${stage==='request'&&p.canAddItem?`<button class="btn amber" id="toggleAdd">${state.addOpen?'Tutup':'+ Request Produksi'}</button>`:''}</div>
+  return `<div class="toolbar"><input type="text" id="searchBox" placeholder="Cari SPK..." value="${esc(state.search)}" />${renderComponentFilter()}${stage==='request'&&p.canAddItem?`<button class="btn amber" id="toggleAdd">${state.addOpen?'Tutup':'+ Request Produksi'}</button>`:''}</div>
     ${stage==='request'&&p.canAddItem&&state.addOpen?renderBulkForm():''}
     <div class="pipeline-title">${titles[stage]} (${items.length})</div>
     ${items.length?items.map(it=>renderItemCard(it,p)).join(''):'<div class="empty">Belum ada data pada bagian ini.</div>'}`;
+}
+
+function matchesComponentFilter(it){
+  return !state.componentFilter||itemMaterials(it).includes(state.componentFilter);
+}
+
+function renderComponentFilter(){
+  if(state.role!=='MARKETING'&&state.role!=='MASTER') return '';
+  return `<label class="component-filter"><span>Filter komponen</span><select id="componentFilter" aria-label="Filter komponen">
+    <option value="">Semua komponen</option>
+    ${MATERIALS.map(material=>`<option value="${esc(material)}" ${state.componentFilter===material?'selected':''}>${esc(material)}</option>`).join('')}
+  </select></label>`;
 }
 
 function renderDashboardMaterialProgress(it){
@@ -704,17 +720,18 @@ function renderDashboardMaterialRequest(it){
 
 function renderDashboard(){
   const query=(state.dashSearch||'').toLowerCase().trim();
-  const items=state.items.filter(it=>!query||it.spk.toLowerCase().includes(query));
+  const matchingItems=state.items.filter(matchesComponentFilter);
+  const items=matchingItems.filter(it=>!query||it.spk.toLowerCase().includes(query));
   const stages=[
     {key:'request',title:'Request Produksi',cls:'col-antrian',items:items.filter(it=>!hasMaterialProgress(it.whReady.history,itemMaterials(it))&&!hasMaterialProgress(it.pengambilan.history,itemMaterials(it)))},
     {key:'ready',title:'Marketing Ready',cls:'col-whparsial',items:items.filter(it=>hasMaterialProgress(it.whReady.history,itemMaterials(it))&&!materialsComplete(it.pengambilan.history,it.qty,itemMaterials(it)))},
     {key:'taken',title:'Taken',cls:'col-whok',items:items.filter(it=>hasMaterialProgress(it.pengambilan.history,itemMaterials(it))&&!materialsComplete(it.pengambilan.history,it.qty,itemMaterials(it)))}
   ];
   const completedTaken=items.filter(it=>materialsComplete(it.pengambilan.history,it.qty,itemMaterials(it)));
-  const complete=state.items.filter(it=>materialsComplete(it.pengambilan.history,it.qty,itemMaterials(it))).length;
-  return `<div class="toolbar"><input type="text" id="dashSearch" placeholder="Cari SPK di dashboard..." value="${esc(query)}" autocomplete="off" />${perm().canAddItem?'<button class="btn amber" id="dashboardAddRequest">+ Request Produksi</button>':''}<button class="btn ghost" id="exportExcel" title="Unduh tiga sheet Excel">↓ Export Excel</button></div>
+  const complete=matchingItems.filter(it=>materialsComplete(it.pengambilan.history,it.qty,itemMaterials(it))).length;
+  return `<div class="toolbar"><input type="text" id="dashSearch" placeholder="Cari SPK di dashboard..." value="${esc(query)}" autocomplete="off" />${renderComponentFilter()}${perm().canAddItem?'<button class="btn amber" id="dashboardAddRequest">+ Request Produksi</button>':''}<button class="btn ghost" id="exportExcel" title="Unduh tiga sheet Excel">↓ Export Excel</button></div>
     <div class="summary-cards">
-      <div class="scard"><div class="num">${state.items.length}</div><div class="lbl">Total Request</div></div>
+      <div class="scard"><div class="num">${matchingItems.length}</div><div class="lbl">Total Request</div></div>
       <div class="scard"><div class="num">${stages[0].items.length}</div><div class="lbl">Request Produksi</div></div>
       <div class="scard"><div class="num">${stages[1].items.length}</div><div class="lbl">Marketing Ready</div></div>
       <div class="scard"><div class="num">${stages[2].items.length}</div><div class="lbl">Taken</div></div>
@@ -1053,6 +1070,10 @@ function attachEvents(){
       const d = document.getElementById('dashSearch');
       if(d){ d.focus(); d.setSelectionRange(state.dashSearch.length, state.dashSearch.length); }
     };
+  }
+  const componentFilter = document.getElementById('componentFilter');
+  if(componentFilter){
+    componentFilter.onchange = (e)=>{ state.componentFilter=e.target.value; render(); };
   }
   const exportExcel = document.getElementById('exportExcel');
   if(exportExcel) exportExcel.onclick = async ()=>{
