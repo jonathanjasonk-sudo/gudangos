@@ -431,11 +431,7 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/dayjs/1.11.10/dayjs.min.js"></script>
 <script>
-const ROLE_INFO = {
-  PRODUKSI: {label:'Produksi', full:'Request Produksi'},
-  MARKETING: {label:'Marketing', full:'Marketing Ready & Taken'},
-  MASTER: {label:'Master', full:'Akses penuh'}
-};
+let ROLE_INFO = {};
 const MATERIALS = ['Shoe Box', 'Size Label', 'Karton Label', 'Marking'];
 const CUSTOMERS = [
   'NB-UAE-GULF AGENCY COMPANY(DUBAI)LLC阿聯酋',
@@ -619,12 +615,12 @@ function xfdStatus(xfdDate, isDone){
 }
 
 function perm(){
-  const r = state.role;
+  const permissions = ROLE_INFO[state.role]?.uiPermissions || {};
   return {
-    canAddItem: r==='PRODUKSI' || r==='MASTER',
-    canDeleteItem: r==='MASTER',
-    canEditWhReady: r==='MARKETING' || r==='MASTER',
-    canEditPengambilan: r==='MARKETING' || r==='MASTER'
+    canAddItem: !!permissions.canAddItem,
+    canDeleteItem: !!permissions.canDeleteItem,
+    canEditWhReady: !!permissions.canEditWhReady,
+    canEditPengambilan: !!permissions.canEditPengambilan
   };
 }
 
@@ -1279,6 +1275,11 @@ function delBulkRow(tr){
 }
 
 (async function init(){
+  try{
+    ROLE_INFO = await api('/roles');
+  }catch(e){
+    console.error('Gagal memuat konfigurasi akun:', e);
+  }
   if(state.role && state.role!=='VIEW' && !ROLE_INFO[state.role]){
     state.role=null; state.token=null;
     localStorage.removeItem('gudang_role'); localStorage.removeItem('gudang_token');

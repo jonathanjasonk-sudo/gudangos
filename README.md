@@ -27,6 +27,24 @@ Di service aplikasi (bukan database), buka tab **Variables**, tambahkan:
 
 Password default: Produksi `prod123`, Marketing `marketing123`, dan Master `master123`. Atur password melalui environment variables sebelum aplikasi digunakan bersama.
 
+### Menambah peran akun
+Tambahkan entri baru di `accounts.js`. Contoh:
+```js
+QC: {
+	label: 'QC',
+	full: 'Quality Control',
+	passwordEnv: 'PASS_QC',
+	apiPermissions: ['whReady'],
+	uiPermissions: {
+		canAddItem: false,
+		canDeleteItem: false,
+		canEditWhReady: true,
+		canEditPengambilan: false
+	}
+}
+```
+Setelah itu, tambahkan `PASS_QC` beserta password-nya di **Variables** service Railway, lalu deploy ulang. Jangan menulis password asli di `accounts.js` atau meng-commit-nya ke GitHub. `apiPermissions` menentukan akses endpoint (`planning`, `addItem`, `whReady`, `pengambilan`, `returanAdd`, `returanConfirm`); `uiPermissions` menentukan tombol yang tersedia di halaman.
+
 ### 5. Selesai
 Railway akan memberi Anda URL publik (misalnya `namaservis.up.railway.app`). Buka URL itu, dan aplikasi sudah bisa dipakai oleh siapa saja yang Anda beri linknya, dengan data tersimpan permanen di database.
 

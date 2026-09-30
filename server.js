@@ -4,6 +4,7 @@ const { Pool } = require('pg');
 const path = require('path');
 const crypto = require('crypto');
 const buildExportWorkbook = require('./exportWorkbook');
+const ACCOUNTS = require('./accounts');
 
 const app = express();
 app.use(cors());
@@ -78,11 +79,15 @@ async function initDb() {
 // ---------- Auth ----------
 // Password dapat diatur melalui environment variables Railway.
 // Ganti nilai default sebelum aplikasi digunakan bersama.
-const ROLE_PASS = {
-  PRODUKSI: process.env.PASS_PRODUKSI || 'prod123',
-  MARKETING: process.env.PASS_MARKETING || 'marketing123',
-  MASTER: process.env.PASS_MASTER || 'master123'
+const DEFAULT_ROLE_PASSWORDS = {
+  PRODUKSI: 'prod123',
+  MARKETING: 'marketing123',
+  MASTER: 'master123'
 };
+const ROLE_PASS = Object.fromEntries(Object.entries(ACCOUNTS).map(([role, account])=>[
+  role,
+  process.env[account.passwordEnv] || DEFAULT_ROLE_PASSWORDS[role]
+]));
 const SECRET = process.env.AUTH_SECRET || 'ganti-secret-ini-di-railway';
 const MATERIALS = ['Shoe Box', 'Size Label', 'Karton Label', 'Marking'];
 
@@ -107,14 +112,13 @@ function authMiddleware(req, res, next) {
   req.role = role; // null kalau tidak login / view-only
   next();
 }
-const PERMS = {
-  planning: ['MASTER', 'PRODUKSI'],
-  addItem: ['PRODUKSI', 'MASTER'],
-  whReady: ['MARKETING', 'MASTER'],
-  pengambilan: ['MARKETING', 'MASTER', 'PRODUKSI'],
-  returanAdd: ['MASTER', 'MARKETING'],
-  returanConfirm: ['MASTER', 'MARKETING']
-};
+const PERMS = {};
+for (const [role, account] of Object.entries(ACCOUNTS)) {
+  for (const permission of account.apiPermissions) {
+    if (!PERMS[permission]) PERMS[permission] = [];
+    PERMS[permission].push(role);
+  }
+}
 function requirePerm(key) {
   return (req, res, next) => {
     if (!req.role || !PERMS[key].includes(req.role)) {
@@ -125,6 +129,14 @@ function requirePerm(key) {
 }
 
 app.use(authMiddleware);
+
+app.get('/api/roles', (req, res) => {
+  const roles = Object.fromEntries(Object.entries(ACCOUNTS).map(([role, account])=>[
+    role,
+    {label: account.label, full: account.full, uiPermissions: account.uiPermissions}
+  ]));
+  res.json(roles);
+});
 
 app.post('/api/login', (req, res) => {
   const { role, passcode } = req.body || {};
