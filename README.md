@@ -25,7 +25,7 @@ Di service aplikasi (bukan database), buka tab **Variables**, tambahkan:
 - `PASS_MASTER` → password akun Master
 - `AUTH_SECRET` → string acak panjang (bebas, buat sendiri)
 
-Password default: Produksi `prod123`, Marketing `marketing123`, dan Master `master123`. Atur password melalui environment variables sebelum aplikasi digunakan bersama.
+Ketiga variabel password wajib diisi sebelum akun dapat digunakan. Aplikasi tidak menyediakan password default.
 
 ### Menambah peran akun
 Tambahkan entri baru di `accounts.js`. Contoh:

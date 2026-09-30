@@ -77,16 +77,10 @@ async function initDb() {
 }
 
 // ---------- Auth ----------
-// Password dapat diatur melalui environment variables Railway.
-// Ganti nilai default sebelum aplikasi digunakan bersama.
-const DEFAULT_ROLE_PASSWORDS = {
-  PRODUKSI: 'prod123',
-  MARKETING: 'marketing123',
-  MASTER: 'master123'
-};
+// Password akun wajib disediakan melalui environment variables.
 const ROLE_PASS = Object.fromEntries(Object.entries(ACCOUNTS).map(([role, account])=>[
   role,
-  process.env[account.passwordEnv] || DEFAULT_ROLE_PASSWORDS[role]
+  process.env[account.passwordEnv]
 ]));
 const SECRET = process.env.AUTH_SECRET || 'ganti-secret-ini-di-railway';
 const MATERIALS = ['Shoe Box', 'Size Label', 'Karton Label', 'Marking'];
