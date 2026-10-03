@@ -29,6 +29,10 @@
   .role-btn.active{background:var(--amber);color:#2A1D00;border-color:var(--amber);}
   .role-btn small{display:block;font-family:'Inter',sans-serif;font-size:11px;color:#B9BFD1;font-weight:400;margin-top:2px;}
   .role-btn.active small{color:#5A3E00;}
+  .building-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin:0 0 12px;}
+  .building-btn{padding:9px;border:1px solid #3A4358;border-radius:7px;background:var(--navy2);color:#fff;font-size:14px;font-weight:600;cursor:pointer;}
+  .building-btn:hover{border-color:var(--amber);}
+  .building-btn.active{background:var(--amber);border-color:var(--amber);color:#2A1D00;}
   .login-card input{width:100%;padding:11px 12px;border-radius:8px;border:1px solid #3A4358;background:#141928;color:#fff;font-size:14px;margin-bottom:10px;}
   .login-card button.go{width:100%;background:var(--amber);color:#2A1D00;border:none;padding:12px;border-radius:8px;font-weight:600;font-size:15px;cursor:pointer;font-family:'Barlow Condensed',sans-serif;letter-spacing:.03em;}
   .login-err{color:#FFB4B4;font-size:12.5px;margin:-4px 0 10px;}
@@ -569,6 +573,7 @@ const CUSTOMERS = [
 let state = {
     role: localStorage.getItem('gudang_role') || null,
   token: localStorage.getItem('gudang_token') || null,
+  building: localStorage.getItem('gudang_building') || null,
   items: [],
   tab: 'dashboard',
   expanded: null,
@@ -577,6 +582,7 @@ let state = {
   componentFilters: [],
   componentFilterOpen: false,
   loginRoleSel: null,
+  loginBuildingSel: null,
   loginErr: '',
   addOpen: false,
   requestRows: [],
@@ -701,6 +707,9 @@ function render(){
 
 function renderLogin(){
   const sel = state.loginRoleSel;
+  const buildings=sel==='PRODUKSI'?(ROLE_INFO.PRODUKSI?.buildings||[]):[];
+  const needsBuilding=sel==='PRODUKSI';
+  const canEnterPasscode=sel&&(!needsBuilding||state.loginBuildingSel);
   return `
   <div class="login-wrap">
     <div class="login-card">
@@ -711,10 +720,11 @@ function renderLogin(){
           <div class="role-btn ${sel===k?'active':''}" data-role="${k}">${ROLE_INFO[k].label}<small>${ROLE_INFO[k].full}</small></div>
         `).join('')}
       </div>
-      ${sel ? `
-        <input type="password" id="passInput" placeholder="Masukkan password ${ROLE_INFO[sel].label}" />
+      ${needsBuilding?`<div class="building-grid" aria-label="Pilih gedung produksi">${buildings.map(building=>`<button type="button" class="building-btn ${state.loginBuildingSel===building?'active':''}" data-building="${building}">Gedung ${building}</button>`).join('')}</div>`:''}
+      ${canEnterPasscode ? `
+        <input type="password" id="passInput" placeholder="Masukkan password ${needsBuilding?`Gedung ${state.loginBuildingSel}`:ROLE_INFO[sel].label}" />
         ${state.loginErr ? `<div class="login-err">${esc(state.loginErr)}</div>` : ''}
-        <button class="go" id="loginGo">Masuk sebagai ${ROLE_INFO[sel].label}</button>
+        <button class="go" id="loginGo">Masuk sebagai ${needsBuilding?`Produksi · Gedung ${state.loginBuildingSel}`:ROLE_INFO[sel].label}</button>
       ` : ''}
       <div class="view-only-link" id="viewOnlyBtn">Lihat data saja</div>
     </div>
@@ -731,7 +741,7 @@ function renderMain(){
       <div><h1>Marketing System</h1><div class="sub">Request Produksi · Marketing Ready · Taken</div></div>
     </div>
     <div class="who">
-      <div class="tag">${state.role==='VIEW' ? 'View only' : ROLE_INFO[state.role].label + ' — ' + ROLE_INFO[state.role].full}</div>
+      <div class="tag">${state.role==='VIEW' ? 'View only' : state.role==='PRODUKSI' ? `Produksi · Gedung ${state.building}` : ROLE_INFO[state.role].label + ' — ' + ROLE_INFO[state.role].full}</div>
       <button id="logoutBtn">Keluar</button>
     </div>
   </div>
@@ -1147,18 +1157,24 @@ function attachEvents(){
   const app = document.getElementById('app');
 
   app.querySelectorAll('[data-role]').forEach(el=>{
-    el.onclick = ()=>{ state.loginRoleSel = el.dataset.role; state.loginErr=''; render(); };
+    el.onclick = ()=>{ state.loginRoleSel = el.dataset.role; state.loginBuildingSel=null; state.loginErr=''; render(); };
+  });
+  app.querySelectorAll('[data-building]').forEach(el=>{
+    el.onclick=()=>{ state.loginBuildingSel=el.dataset.building; state.loginErr=''; render(); };
   });
   const loginGo = document.getElementById('loginGo');
   if(loginGo){
     loginGo.onclick = async ()=>{
       const val = document.getElementById('passInput').value;
       try{
-        const data = await api('/login', {method:'POST', body: JSON.stringify({role: state.loginRoleSel, passcode: val})});
-        state.role = data.role; state.token = data.token;
+        const data = await api('/login', {method:'POST', body: JSON.stringify({role: state.loginRoleSel, building: state.loginBuildingSel, passcode: val})});
+        state.role = data.role; state.token = data.token; state.building=data.building||null;
         localStorage.setItem('gudang_role', data.role);
         localStorage.setItem('gudang_token', data.token);
+        if(state.building) localStorage.setItem('gudang_building',state.building);
+        else localStorage.removeItem('gudang_building');
         state.loginErr=''; state.loginRoleSel=null;
+        state.loginBuildingSel=null;
         state.loading = true; render();
         await loadItems(); render();
       }catch(e){
@@ -1168,16 +1184,18 @@ function attachEvents(){
   }
   const vo = document.getElementById('viewOnlyBtn');
   if(vo) vo.onclick = async ()=>{
-    state.role='VIEW'; state.token=null;
+    state.role='VIEW'; state.token=null; state.building=null;
     localStorage.removeItem('gudang_token'); localStorage.setItem('gudang_role','VIEW');
+    localStorage.removeItem('gudang_building');
     state.loading = true; render();
     await loadItems(); render();
   };
 
   const logout = document.getElementById('logoutBtn');
   if(logout) logout.onclick = ()=>{
-    state.role=null; state.token=null; state.tab='dashboard';
+    state.role=null; state.token=null; state.building=null; state.tab='dashboard';
     localStorage.removeItem('gudang_role'); localStorage.removeItem('gudang_token');
+    localStorage.removeItem('gudang_building');
     render();
   };
 
@@ -1548,9 +1566,10 @@ function delBulkRow(tr){
   }catch(e){
     console.error('Gagal memuat konfigurasi akun:', e);
   }
-  if(state.role && state.role!=='VIEW' && !ROLE_INFO[state.role]){
-    state.role=null; state.token=null;
+  if(state.role && state.role!=='VIEW' && (!ROLE_INFO[state.role]||(state.role==='PRODUKSI'&&!state.building))){
+    state.role=null; state.token=null; state.building=null;
     localStorage.removeItem('gudang_role'); localStorage.removeItem('gudang_token');
+    localStorage.removeItem('gudang_building');
   }
   if(state.role){
     await loadItems();

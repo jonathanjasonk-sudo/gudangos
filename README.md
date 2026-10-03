@@ -20,12 +20,17 @@ Backend: Node.js + Express + PostgreSQL. Frontend: HTML/JS biasa (tanpa build st
 
 ### 4. Set password & secret
 Di service aplikasi (bukan database), buka tab **Variables**, tambahkan:
-- `PASS_PRODUKSI` → password akun Produksi
+- `PASS_PRODUKSI_C` → password Produksi Gedung C
+- `PASS_PRODUKSI_D` → password Produksi Gedung D
+- `PASS_PRODUKSI_I` → password Produksi Gedung I
+- `PASS_PRODUKSI_E` → password Produksi Gedung E
+- `PASS_PRODUKSI_F` → password Produksi Gedung F
+- `PASS_PRODUKSI_H` → password Produksi Gedung H
 - `PASS_MARKETING` → password akun Marketing
 - `PASS_MASTER` → password akun Master
 - `AUTH_SECRET` → string acak panjang (bebas, buat sendiri)
 
-Ketiga variabel password wajib diisi sebelum akun dapat digunakan. Aplikasi tidak menyediakan password default.
+Setiap password gedung diatur terpisah; gedung hanya dapat login jika variable password-nya sudah diisi. Password Marketing dan Master tetap diatur masing-masing. Aplikasi tidak menyediakan password default.
 
 ### Menambah peran akun
 Tambahkan entri baru di `accounts.js`. Contoh:
@@ -49,7 +54,7 @@ Setelah itu, tambahkan `PASS_QC` beserta password-nya di **Variables** service R
 Railway akan memberi Anda URL publik (misalnya `namaservis.up.railway.app`). Buka URL itu, dan aplikasi sudah bisa dipakai oleh siapa saja yang Anda beri linknya, dengan data tersimpan permanen di database.
 
 ## Alur dan akses
-- **Request Produksi** — akun Produksi dapat menambahkan beberapa SPK dan mencari semuanya sekaligus. SPK yang tidak ditemukan ditandai satu per satu untuk diperbaiki atau diinput manual.
+- **Request Produksi** — akun Produksi memilih gedung C, D, I, E, F, atau H saat login. Daftar request dibatasi ke gedung tersebut; Marketing dan Master dapat melihat seluruh request. Request lama yang belum memiliki gedung tetap terlihat oleh Marketing/Master dan tidak otomatis ditetapkan ke salah satu gedung. Produksi dapat menambahkan beberapa SPK dan mencari semuanya sekaligus. SPK yang tidak ditemukan ditandai satu per satu untuk diperbaiki atau diinput manual.
 - **Master SPK** — akun Marketing atau Master mengimpor file `.xlsx` dengan kolom `SPK`, `STYLE`, `CUSTOMER`, `XFD`, `QTY`. Template header dapat diunduh dari Menu Dashboard. Impor ulang dengan SPK yang sama memperbarui data master.
 - **Import History** — tab Marketing/Master menampilkan waktu, nama file, akun pengimpor, serta jumlah SPK baru dan diperbarui.
 - **Pencarian request** — STYLE, CUSTOMER, XFD, dan QTY dari master terisi otomatis. SPK yang tidak ditemukan dapat dibuat manual dan otomatis disimpan sebagai master. Penulisan SPK otomatis menjadi huruf besar.

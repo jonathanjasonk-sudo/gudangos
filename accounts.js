@@ -2,7 +2,7 @@ module.exports = {
   PRODUKSI: {
     label: 'Produksi',
     full: 'Request Produksi',
-    passwordEnv: 'PASS_PRODUKSI',
+    passwordEnvPrefix: 'PASS_PRODUKSI_',
     apiPermissions: ['planning', 'addItem', 'pengambilan'],
     uiPermissions: {
       canAddItem: true,

@@ -38,6 +38,8 @@ async function initDb() {
   await pool.query(`ALTER TABLE items ADD COLUMN IF NOT EXISTS customer TEXT NOT NULL DEFAULT ''`);
   await pool.query(`ALTER TABLE items ADD COLUMN IF NOT EXISTS materials TEXT[] NOT NULL DEFAULT ARRAY['Shoe Box', 'Size Label', 'Karton Label', 'Marking']`);
   await pool.query(`ALTER TABLE items ADD COLUMN IF NOT EXISTS style TEXT NOT NULL DEFAULT ''`);
+  await pool.query(`ALTER TABLE items ADD COLUMN IF NOT EXISTS building TEXT`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS items_building_idx ON items (building)`);
   await pool.query(`UPDATE items SET spk = upper(btrim(spk)) WHERE spk <> upper(btrim(spk))`);
   await pool.query(`
     CREATE TABLE IF NOT EXISTS spk_master (
@@ -115,10 +117,15 @@ async function initDb() {
 // Password akun wajib disediakan melalui environment variables.
 const ROLE_PASS = Object.fromEntries(Object.entries(ACCOUNTS).map(([role, account])=>[
   role,
-  process.env[account.passwordEnv]
+  role === 'PRODUKSI' ? null : process.env[account.passwordEnv]
 ]));
 const SECRET = process.env.AUTH_SECRET || 'ganti-secret-ini-di-railway';
 const MATERIALS = ['Shoe Box', 'Size Label', 'Karton Label', 'Marking'];
+const BUILDINGS = ['C', 'D', 'I', 'E', 'F', 'H'];
+const BUILDING_PASS = Object.fromEntries(BUILDINGS.map(building=>[
+  building,
+  process.env[`${ACCOUNTS.PRODUKSI.passwordEnvPrefix}${building}`]
+]));
 
 function normalizeSpk(value) {
   return typeof value === 'string' ? value.trim().toUpperCase() : '';
@@ -152,16 +159,23 @@ function validDate(value) {
   return Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
 }
 
-function makeToken(role) {
-  const sig = crypto.createHmac('sha256', SECRET).update(role).digest('hex');
-  return Buffer.from(`${role}.${sig}`).toString('base64');
+function makeToken(role, building=null) {
+  const identity = building ? `${role}:${building}` : role;
+  const sig = crypto.createHmac('sha256', SECRET).update(identity).digest('hex');
+  return Buffer.from(`${identity}.${sig}`).toString('base64');
 }
 function verifyToken(token) {
   try {
     const decoded = Buffer.from(token, 'base64').toString('utf8');
-    const [role, sig] = decoded.split('.');
-    const expected = crypto.createHmac('sha256', SECRET).update(role).digest('hex');
-    if (sig === expected && ROLE_PASS[role]) return role;
+    const separator = decoded.lastIndexOf('.');
+    if (separator < 1) return null;
+    const identity = decoded.slice(0, separator);
+    const sig = decoded.slice(separator + 1);
+    const [role, building] = identity.split(':');
+    const expected = crypto.createHmac('sha256', SECRET).update(identity).digest('hex');
+    const validProduction = role === 'PRODUKSI' && BUILDINGS.includes(building) && BUILDING_PASS[building];
+    const validOtherRole = role !== 'PRODUKSI' && !building && ROLE_PASS[role];
+    if (sig === expected && (validProduction || validOtherRole)) return { role, building: building || null };
     return null;
   } catch (e) {
     return null;
@@ -169,8 +183,9 @@ function verifyToken(token) {
 }
 function authMiddleware(req, res, next) {
   const token = req.headers['x-auth-token'];
-  const role = token ? verifyToken(token) : null;
-  req.role = role; // null kalau tidak login / view-only
+  const identity = token ? verifyToken(token) : null;
+  req.role = identity?.role || null; // null kalau tidak login / view-only
+  req.building = identity?.building || null;
   next();
 }
 const PERMS = {};
@@ -194,13 +209,20 @@ app.use(authMiddleware);
 app.get('/api/roles', (req, res) => {
   const roles = Object.fromEntries(Object.entries(ACCOUNTS).map(([role, account])=>[
     role,
-    {label: account.label, full: account.full, uiPermissions: account.uiPermissions}
+    {label: account.label, full: account.full, uiPermissions: account.uiPermissions, buildings: role === 'PRODUKSI' ? BUILDINGS : []}
   ]));
   res.json(roles);
 });
 
 app.post('/api/login', (req, res) => {
-  const { role, passcode } = req.body || {};
+  const { role, building, passcode } = req.body || {};
+  if (role === 'PRODUKSI') {
+    if (!BUILDINGS.includes(building)) return res.status(400).json({ error: 'Pilih gedung Produksi terlebih dahulu.' });
+    const buildingPass = BUILDING_PASS[building];
+    if (!buildingPass) return res.status(503).json({ error: `Password Gedung ${building} belum disetel di Railway (${ACCOUNTS.PRODUKSI.passwordEnvPrefix}${building}).` });
+    if (passcode !== buildingPass) return res.status(401).json({ error: 'Passcode salah.' });
+    return res.json({ token: makeToken(role, building), role, building });
+  }
   if (!ROLE_PASS[role] || passcode !== ROLE_PASS[role]) {
     return res.status(401).json({ error: 'Passcode salah.' });
   }
@@ -208,13 +230,17 @@ app.post('/api/login', (req, res) => {
 });
 
 // ---------- Helpers ----------
-async function getFullItems() {
+async function getFullItems(req=null) {
+  const productionScope=req?.role==='PRODUKSI';
+  const fullAccess=['MARKETING','MASTER'].includes(req?.role);
+  const accessFilter=productionScope?'WHERE items.building=$1':fullAccess?'':'WHERE false';
   const items = (await pool.query(`
     SELECT items.*, spk_master.style AS master_style, spk_master.customer AS master_customer,
       spk_master.xfd AS master_xfd, spk_master.qty AS master_qty
     FROM items LEFT JOIN spk_master ON spk_master.spk = items.spk
+    ${accessFilter}
     ORDER BY items.created_at DESC
-  `)).rows;
+  `,productionScope?[req.building]:[])).rows;
   const wh = (await pool.query('SELECT * FROM wh_ready_history ORDER BY date ASC')).rows;
   const peng = (await pool.query('SELECT * FROM pengambilan_history ORDER BY date ASC')).rows;
   const ret = (await pool.query('SELECT * FROM returan ORDER BY date DESC')).rows;
@@ -222,6 +248,7 @@ async function getFullItems() {
   return items.map(it => ({
     id: it.id,
     spk: it.spk,
+    building: it.building || null,
     style: it.master_style || it.style || '',
     customer: it.master_customer || it.customer || '',
     materials: it.materials || MATERIALS,
@@ -243,14 +270,14 @@ async function getFullItems() {
 // ---------- Routes ----------
 app.get('/api/items', async (req, res) => {
   try {
-    res.json(await getFullItems());
+    res.json(await getFullItems(req));
   } catch (e) {
     console.error(e);
     res.status(500).json({ error: 'Gagal mengambil data.' });
   }
 });
 
-app.get('/api/spk', async (req, res) => {
+app.get('/api/spk', requirePerm('addItem'), async (req, res) => {
   try {
     const search = normalizeSpk(req.query.search || '');
     if (!search) return res.json([]);
@@ -415,7 +442,7 @@ app.post('/api/spk/import', requirePerm('importSpk'), express.raw({
 
 app.get('/api/export.xlsx', requirePerm('exportFile'), async (req, res) => {
   try {
-    const workbook = await buildExportWorkbook(await getFullItems());
+    const workbook = await buildExportWorkbook(await getFullItems(req));
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', 'attachment; filename="Marketing-System.xlsx"');
     await workbook.xlsx.write(res);
@@ -426,7 +453,7 @@ app.get('/api/export.xlsx', requirePerm('exportFile'), async (req, res) => {
   }
 });
 
-async function createRequest(client, role, item) {
+async function createRequest(client, role, building, item) {
   const spk = normalizeSpk(item.spk);
   const requestedMaterials = Array.isArray(item.materials) ? [...new Set(item.materials)] : [];
   if (!spk || !requestedMaterials.length || requestedMaterials.some(material => !MATERIALS.includes(material))) {
@@ -461,20 +488,32 @@ async function createRequest(client, role, item) {
   }
   const id = crypto.randomUUID();
   await client.query(
-    `INSERT INTO items (id, spk, style, customer, materials, xfd, qty, created_by, planning_done, planning_date)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,true,CURRENT_DATE)`,
-    [id, spk, master.style, master.customer, requestedMaterials, master.xfd, master.qty, role]
+    `INSERT INTO items (id, spk, style, customer, materials, xfd, qty, created_by, building, planning_done, planning_date)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,true,CURRENT_DATE)`,
+    [id, spk, master.style, master.customer, requestedMaterials, master.xfd, master.qty, role, role==='PRODUKSI'?building:null]
   );
   return id;
+}
+
+async function requireBuildingOwnership(req, res, next) {
+  if(req.role!=='PRODUKSI') return next();
+  try{
+    const item=await pool.query('SELECT 1 FROM items WHERE id=$1 AND building=$2',[req.params.id,req.building]);
+    if(!item.rowCount) return res.status(404).json({error:'Request tidak ditemukan untuk gedung ini.'});
+    next();
+  }catch(e){
+    console.error(e);
+    res.status(500).json({error:'Gagal memeriksa akses request.'});
+  }
 }
 
 app.post('/api/items', requirePerm('addItem'), async (req, res) => {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    await createRequest(client, req.role, req.body || {});
+    await createRequest(client, req.role, req.building, req.body || {});
     await client.query('COMMIT');
-    res.json(await getFullItems());
+    res.json(await getFullItems(req));
   } catch (e) {
     await client.query('ROLLBACK');
     if (e.status) return res.status(e.status).json({ error: e.message });
@@ -494,10 +533,10 @@ app.post('/api/items/bulk', requirePerm('addItem'), async (req, res) => {
     client = await pool.connect();
     await client.query('BEGIN');
     for (const item of limited) {
-      await createRequest(client, req.role, item || {});
+      await createRequest(client, req.role, req.building, item || {});
     }
     await client.query('COMMIT');
-    res.json(await getFullItems());
+    res.json(await getFullItems(req));
   } catch (e) {
     if (client) await client.query('ROLLBACK');
     if (e.status) return res.status(e.status).json({ error: e.message });
@@ -508,12 +547,12 @@ app.post('/api/items/bulk', requirePerm('addItem'), async (req, res) => {
   }
 });
 
-app.post('/api/items/:id/planning', requirePerm('planning'), async (req, res) => {
+app.post('/api/items/:id/planning', requirePerm('planning'), requireBuildingOwnership, async (req, res) => {
   await pool.query('UPDATE items SET planning_done = true, planning_date = CURRENT_DATE WHERE id=$1', [req.params.id]);
-  res.json(await getFullItems());
+  res.json(await getFullItems(req));
 });
 
-app.post('/api/items/:id/wh-ready', requirePerm('whReady'), async (req, res) => {
+app.post('/api/items/:id/wh-ready', requirePerm('whReady'), requireBuildingOwnership, async (req, res) => {
   const { qty, date, pic, material, notes } = req.body || {};
   if (!Number.isFinite(Number(qty)) || Number(qty) <= 0 || !date || !MATERIALS.includes(material)) {
     return res.status(400).json({ error: 'Qty, tanggal, dan material yang valid wajib diisi.' });
@@ -524,10 +563,10 @@ app.post('/api/items/:id/wh-ready', requirePerm('whReady'), async (req, res) => 
   const used = (await pool.query('SELECT COALESCE(SUM(qty),0)::int AS total FROM wh_ready_history WHERE item_id=$1 AND material=$2', [req.params.id, material])).rows[0].total;
   if (Number(used) + Number(qty) > item.qty) return res.status(400).json({ error: `Qty melebihi sisa material (${item.qty - Number(used)}).` });
   await pool.query('INSERT INTO wh_ready_history (item_id, qty, date, by_role, pic, material, notes) VALUES ($1,$2,$3,$4,$5,$6,$7)', [req.params.id, Number(qty), date, req.role, pic || null, material, notes || null]);
-  res.json(await getFullItems());
+  res.json(await getFullItems(req));
 });
 
-app.post('/api/items/:id/pengambilan', requirePerm('pengambilan'), async (req, res) => {
+app.post('/api/items/:id/pengambilan', requirePerm('pengambilan'), requireBuildingOwnership, async (req, res) => {
   const { qty, date, pic, material, notes } = req.body || {};
   if (!Number.isFinite(Number(qty)) || Number(qty) <= 0 || !date || !MATERIALS.includes(material)) {
     return res.status(400).json({ error: 'Qty, tanggal, dan material yang valid wajib diisi.' });
@@ -538,10 +577,10 @@ app.post('/api/items/:id/pengambilan', requirePerm('pengambilan'), async (req, r
   const used = (await pool.query('SELECT COALESCE(SUM(qty),0)::int AS total FROM pengambilan_history WHERE item_id=$1 AND material=$2', [req.params.id, material])).rows[0].total;
   if (Number(used) + Number(qty) > item.qty) return res.status(400).json({ error: `Qty melebihi sisa material (${item.qty - Number(used)}).` });
   await pool.query('INSERT INTO pengambilan_history (item_id, qty, date, by_role, pic, material, notes) VALUES ($1,$2,$3,$4,$5,$6,$7)', [req.params.id, Number(qty), date, req.role, pic || null, material, notes || null]);
-  res.json(await getFullItems());
+  res.json(await getFullItems(req));
 });
 
-app.post('/api/items/:id/returan', requirePerm('returanAdd'), async (req, res) => {
+app.post('/api/items/:id/returan', requirePerm('returanAdd'), requireBuildingOwnership, async (req, res) => {
   const { qty, reason, type } = req.body || {};
   if (!qty || qty <= 0) return res.status(400).json({ error: 'Qty wajib diisi.' });
   const validType = type === 'closing' ? 'closing' : 'gudang';
@@ -558,7 +597,7 @@ app.post('/api/items/:id/returan', requirePerm('returanAdd'), async (req, res) =
       [id, req.params.id, qty, reason || '', req.role, 'gudang']
     );
   }
-  res.json(await getFullItems());
+  res.json(await getFullItems(req));
 });
 
 app.post('/api/returan/:retId/confirm', requirePerm('returanConfirm'), async (req, res) => {
@@ -566,13 +605,13 @@ app.post('/api/returan/:retId/confirm', requirePerm('returanConfirm'), async (re
     "UPDATE returan SET status='confirmed', confirmed_by=$1, confirmed_date=CURRENT_DATE WHERE id=$2",
     [req.role, req.params.retId]
   );
-  res.json(await getFullItems());
+  res.json(await getFullItems(req));
 });
 
-app.delete('/api/items/:id', requirePerm('planning'), async (req, res) => {
+app.delete('/api/items/:id', requirePerm('planning'), requireBuildingOwnership, async (req, res) => {
   try {
     await pool.query('DELETE FROM items WHERE id=$1', [req.params.id]);
-    res.json(await getFullItems());
+    res.json(await getFullItems(req));
   } catch (e) {
     console.error(e);
     res.status(500).json({ error: 'Gagal menghapus item.' });
