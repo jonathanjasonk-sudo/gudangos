@@ -43,22 +43,23 @@ QC: {
 	}
 }
 ```
-Setelah itu, tambahkan `PASS_QC` beserta password-nya di **Variables** service Railway, lalu deploy ulang. Jangan menulis password asli di `accounts.js` atau meng-commit-nya ke GitHub. `apiPermissions` menentukan akses endpoint (`planning`, `addItem`, `importSpk`, `whReady`, `pengambilan`, `returanAdd`, `returanConfirm`); `uiPermissions` menentukan tombol yang tersedia di halaman.
+Setelah itu, tambahkan `PASS_QC` beserta password-nya di **Variables** service Railway, lalu deploy ulang. Jangan menulis password asli di `accounts.js` atau meng-commit-nya ke GitHub. `apiPermissions` menentukan akses endpoint (`planning`, `addItem`, `importSpk`, `exportFile`, `whReady`, `pengambilan`, `returanAdd`, `returanConfirm`); `uiPermissions` menentukan tombol yang tersedia di halaman.
 
 ### 5. Selesai
 Railway akan memberi Anda URL publik (misalnya `namaservis.up.railway.app`). Buka URL itu, dan aplikasi sudah bisa dipakai oleh siapa saja yang Anda beri linknya, dengan data tersimpan permanen di database.
 
 ## Alur dan akses
-- **Request Produksi** — akun Produksi memilih SPK dan material; request tampil sebelum pencatatan Ready/Taken dimulai.
-- **Master SPK** — akun Marketing atau Master mengimpor file `.xlsx` dengan kolom `SPK`, `STYLE`, `CUSTOMER`, `XFD`, `QTY`. Template header dapat diunduh dari Dashboard. Impor ulang dengan SPK yang sama memperbarui data master.
+- **Request Produksi** — akun Produksi dapat menambahkan beberapa SPK dan mencari semuanya sekaligus. SPK yang tidak ditemukan ditandai satu per satu untuk diperbaiki atau diinput manual.
+- **Master SPK** — akun Marketing atau Master mengimpor file `.xlsx` dengan kolom `SPK`, `STYLE`, `CUSTOMER`, `XFD`, `QTY`. Template header dapat diunduh dari Menu Dashboard. Impor ulang dengan SPK yang sama memperbarui data master.
+- **Import History** — tab Marketing/Master menampilkan waktu, nama file, akun pengimpor, serta jumlah SPK baru dan diperbarui.
 - **Pencarian request** — STYLE, CUSTOMER, XFD, dan QTY dari master terisi otomatis. SPK yang tidak ditemukan dapat dibuat manual dan otomatis disimpan sebagai master. Penulisan SPK otomatis menjadi huruf besar.
 - **Request material** — satu SPK dapat memiliki beberapa request untuk material berbeda. Material yang sudah pernah diminta tidak dapat diminta ulang untuk SPK tersebut.
 - **Marketing Ready** — akun Marketing mencatat material yang siap, per material dan qty; tetap terlihat selama Taken belum lengkap.
 - **Taken** — akun Marketing mencatat material yang diambil; request selesai setelah semua 4 material mencapai QTY.
-- **History Taken** — mencatat Customer, material, dan tanggal saat seluruh material selesai diambil.
+- **History Taken** — tersedia di tab Taken, satu baris per pencatatan komponen dengan qty, tanggal ambil, dan PIC.
 - **Master** — akses penuh ke request, Marketing Ready, dan Taken.
 - Material yang dicatat: Shoe Box, Size Label, Karton Label, dan Marking.
-- Export Excel menyediakan sheet `REQ PRODUKSI`, `MARKETING READY`, dan `TAKEN`, termasuk qty serta balance tiap material.
+- Akses impor dan unduh file hanya ditambahkan untuk akun Marketing dan Master; akses Request Produksi tetap mengikuti role masing-masing. Kontrol file dan Request Produksi di Dashboard tersedia pada Menu yang bisa dibuka/tutup. Export Excel menyediakan sheet `REQ PRODUKSI`, `MARKETING READY`, dan `TAKEN`, termasuk qty serta balance tiap material.
 
 ## Menjalankan di komputer sendiri (opsional, untuk uji coba sebelum deploy)
 Butuh Node.js 18+ dan PostgreSQL terpasang.

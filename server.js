@@ -50,6 +50,17 @@ async function initDb() {
     )
   `);
   await pool.query(`
+    CREATE TABLE IF NOT EXISTS spk_import_history (
+      id BIGSERIAL PRIMARY KEY,
+      file_name TEXT NOT NULL,
+      imported_by TEXT NOT NULL,
+      imported_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      total_spks INTEGER NOT NULL,
+      new_spks INTEGER NOT NULL,
+      updated_spks INTEGER NOT NULL
+    )
+  `);
+  await pool.query(`
     INSERT INTO spk_master (spk, style, customer, xfd, qty)
     SELECT DISTINCT ON (spk) spk, style, customer, xfd, qty
     FROM (
@@ -267,7 +278,49 @@ app.get('/api/spk', async (req, res) => {
   }
 });
 
-app.get('/api/spk/template.xlsx', async (req, res) => {
+app.post('/api/spk/lookup', requirePerm('addItem'), async (req, res) => {
+  try {
+    const spks = Array.isArray(req.body?.spks) ? [...new Set(req.body.spks.map(normalizeSpk).filter(Boolean))].slice(0, 200) : [];
+    if (!spks.length) return res.status(400).json({ error: 'Isi minimal satu SPK untuk dicari.' });
+    const masters = (await pool.query(
+      'SELECT spk, style, customer, xfd, qty FROM spk_master WHERE spk = ANY($1::text[])',
+      [spks]
+    )).rows;
+    const requested = (await pool.query(
+      'SELECT spk, materials FROM items WHERE spk = ANY($1::text[])',
+      [spks]
+    )).rows;
+    const requestedBySpk = new Map();
+    for (const row of requested) {
+      if (!requestedBySpk.has(row.spk)) requestedBySpk.set(row.spk, new Set());
+      for (const material of row.materials || []) requestedBySpk.get(row.spk).add(material);
+    }
+    res.json({
+      results: masters.map(master => ({
+        ...master,
+        requestedMaterials: [...(requestedBySpk.get(master.spk) || [])]
+      })),
+      missing: spks.filter(spk => !masters.some(master => master.spk === spk))
+    });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Gagal mencari SPK.' });
+  }
+});
+
+app.get('/api/spk/import-history', requirePerm('importSpk'), async (req, res) => {
+  try {
+    const history = (await pool.query(
+      'SELECT id, file_name, imported_by, imported_at, total_spks, new_spks, updated_spks FROM spk_import_history ORDER BY imported_at DESC LIMIT 200'
+    )).rows;
+    res.json(history);
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Gagal mengambil riwayat impor.' });
+  }
+});
+
+app.get('/api/spk/template.xlsx', requirePerm('exportFile'), async (req, res) => {
   try {
     const workbook = await buildSpkTemplateWorkbook();
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
@@ -326,18 +379,30 @@ app.post('/api/spk/import', requirePerm('importSpk'), express.raw({
 
     client = await pool.connect();
     await client.query('BEGIN');
+    let newSpks = 0;
+    let updatedSpks = 0;
     for (const record of records.values()) {
       await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [record.spk]);
-      await client.query(
+      const saved = await client.query(
         `INSERT INTO spk_master (spk, style, customer, xfd, qty, updated_at)
          VALUES ($1,$2,$3,$4,$5,now())
          ON CONFLICT (spk) DO UPDATE SET style=EXCLUDED.style, customer=EXCLUDED.customer,
-           xfd=EXCLUDED.xfd, qty=EXCLUDED.qty, updated_at=now()`,
+           xfd=EXCLUDED.xfd, qty=EXCLUDED.qty, updated_at=now()
+         RETURNING (xmax = 0) AS inserted`,
         [record.spk, record.style, record.customer, record.xfd, record.qty]
       );
+      if (saved.rows[0].inserted) newSpks++;
+      else updatedSpks++;
     }
+    let fileName = req.headers['x-file-name'] || 'Import-SPK.xlsx';
+    try { fileName = decodeURIComponent(fileName); } catch (e) { fileName = 'Import-SPK.xlsx'; }
+    fileName = fileName.split(/[\\/]/).pop().replace(/[\r\n]/g, '').slice(0, 200) || 'Import-SPK.xlsx';
+    await client.query(
+      'INSERT INTO spk_import_history (file_name, imported_by, total_spks, new_spks, updated_spks) VALUES ($1,$2,$3,$4,$5)',
+      [fileName, req.role, records.size, newSpks, updatedSpks]
+    );
     await client.query('COMMIT');
-    res.json({ imported: records.size });
+    res.json({ imported: records.size, newSpks, updatedSpks });
   } catch (e) {
     if (client) await client.query('ROLLBACK');
     console.error(e);
@@ -348,7 +413,7 @@ app.post('/api/spk/import', requirePerm('importSpk'), express.raw({
   }
 });
 
-app.get('/api/export.xlsx', async (req, res) => {
+app.get('/api/export.xlsx', requirePerm('exportFile'), async (req, res) => {
   try {
     const workbook = await buildExportWorkbook(await getFullItems());
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');

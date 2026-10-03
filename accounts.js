@@ -15,10 +15,11 @@ module.exports = {
     label: 'Marketing',
     full: 'Marketing Ready & Taken',
     passwordEnv: 'PASS_MARKETING',
-    apiPermissions: ['planning', 'addItem', 'importSpk', 'whReady', 'pengambilan', 'returanAdd', 'returanConfirm'],
+    apiPermissions: ['importSpk', 'exportFile', 'whReady', 'pengambilan', 'returanAdd', 'returanConfirm'],
     uiPermissions: {
       canAddItem: false,
       canImportSpk: true,
+      canExportFiles: true,
       canDeleteItem: false,
       canEditWhReady: true,
       canEditPengambilan: true
@@ -28,10 +29,11 @@ module.exports = {
     label: 'Master',
     full: 'Akses penuh',
     passwordEnv: 'PASS_MASTER',
-    apiPermissions: ['planning', 'addItem', 'importSpk', 'whReady', 'pengambilan', 'returanAdd', 'returanConfirm'],
+    apiPermissions: ['planning', 'addItem', 'importSpk', 'exportFile', 'whReady', 'pengambilan', 'returanAdd', 'returanConfirm'],
     uiPermissions: {
       canAddItem: true,
       canImportSpk: true,
+      canExportFiles: true,
       canDeleteItem: true,
       canEditWhReady: true,
       canEditPengambilan: true
