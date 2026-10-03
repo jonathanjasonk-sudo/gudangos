@@ -1,9 +1,11 @@
 const express = require('express');
 const cors = require('cors');
 const { Pool } = require('pg');
+const ExcelJS = require('exceljs');
 const path = require('path');
 const crypto = require('crypto');
 const buildExportWorkbook = require('./exportWorkbook');
+const buildSpkTemplateWorkbook = buildExportWorkbook.buildSpkTemplate;
 const ACCOUNTS = require('./accounts');
 
 const app = express();
@@ -35,6 +37,28 @@ async function initDb() {
   `);
   await pool.query(`ALTER TABLE items ADD COLUMN IF NOT EXISTS customer TEXT NOT NULL DEFAULT ''`);
   await pool.query(`ALTER TABLE items ADD COLUMN IF NOT EXISTS materials TEXT[] NOT NULL DEFAULT ARRAY['Shoe Box', 'Size Label', 'Karton Label', 'Marking']`);
+  await pool.query(`ALTER TABLE items ADD COLUMN IF NOT EXISTS style TEXT NOT NULL DEFAULT ''`);
+  await pool.query(`UPDATE items SET spk = upper(btrim(spk)) WHERE spk <> upper(btrim(spk))`);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS spk_master (
+      spk TEXT PRIMARY KEY,
+      style TEXT NOT NULL DEFAULT '',
+      customer TEXT NOT NULL DEFAULT '',
+      xfd DATE NOT NULL,
+      qty INTEGER NOT NULL CHECK (qty > 0),
+      updated_at TIMESTAMP NOT NULL DEFAULT now()
+    )
+  `);
+  await pool.query(`
+    INSERT INTO spk_master (spk, style, customer, xfd, qty)
+    SELECT DISTINCT ON (spk) spk, style, customer, xfd, qty
+    FROM (
+      SELECT upper(btrim(spk)) AS spk, style, customer, xfd, qty, created_at
+      FROM items WHERE btrim(spk) <> ''
+    ) legacy
+    ORDER BY spk, created_at DESC
+    ON CONFLICT (spk) DO NOTHING
+  `);
   await pool.query(`
     CREATE TABLE IF NOT EXISTS wh_ready_history (
       id SERIAL PRIMARY KEY,
@@ -84,6 +108,38 @@ const ROLE_PASS = Object.fromEntries(Object.entries(ACCOUNTS).map(([role, accoun
 ]));
 const SECRET = process.env.AUTH_SECRET || 'ganti-secret-ini-di-railway';
 const MATERIALS = ['Shoe Box', 'Size Label', 'Karton Label', 'Marking'];
+
+function normalizeSpk(value) {
+  return typeof value === 'string' ? value.trim().toUpperCase() : '';
+}
+
+function excelCellText(value) {
+  if (value == null) return '';
+  if (typeof value === 'object' && Array.isArray(value.richText)) return value.richText.map(part => part.text).join('').trim();
+  if (typeof value === 'object' && value.text != null) return String(value.text).trim();
+  return String(value).trim();
+}
+
+function excelDate(value) {
+  if (value instanceof Date && Number.isFinite(value.getTime())) return value.toISOString().slice(0, 10);
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return new Date(Date.UTC(1899, 11, 30) + value * 86400000).toISOString().slice(0, 10);
+  }
+  const text = excelCellText(value);
+  const ymd = text.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/);
+  const dmy = text.match(/^(\d{1,2})[/.](\d{1,2})[/.](\d{4})$/);
+  const parts = ymd ? [ymd[1], ymd[2], ymd[3]] : dmy ? [dmy[3], dmy[2], dmy[1]] : null;
+  if (!parts) return '';
+  const iso = `${parts[0]}-${String(parts[1]).padStart(2, '0')}-${String(parts[2]).padStart(2, '0')}`;
+  const parsed = new Date(`${iso}T00:00:00Z`);
+  return Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0, 10) === iso ? iso : '';
+}
+
+function validDate(value) {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const parsed = new Date(`${value}T00:00:00Z`);
+  return Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+}
 
 function makeToken(role) {
   const sig = crypto.createHmac('sha256', SECRET).update(role).digest('hex');
@@ -142,7 +198,12 @@ app.post('/api/login', (req, res) => {
 
 // ---------- Helpers ----------
 async function getFullItems() {
-  const items = (await pool.query('SELECT * FROM items ORDER BY created_at DESC')).rows;
+  const items = (await pool.query(`
+    SELECT items.*, spk_master.style AS master_style, spk_master.customer AS master_customer,
+      spk_master.xfd AS master_xfd, spk_master.qty AS master_qty
+    FROM items LEFT JOIN spk_master ON spk_master.spk = items.spk
+    ORDER BY items.created_at DESC
+  `)).rows;
   const wh = (await pool.query('SELECT * FROM wh_ready_history ORDER BY date ASC')).rows;
   const peng = (await pool.query('SELECT * FROM pengambilan_history ORDER BY date ASC')).rows;
   const ret = (await pool.query('SELECT * FROM returan ORDER BY date DESC')).rows;
@@ -150,10 +211,11 @@ async function getFullItems() {
   return items.map(it => ({
     id: it.id,
     spk: it.spk,
-    customer: it.customer || '',
+    style: it.master_style || it.style || '',
+    customer: it.master_customer || it.customer || '',
     materials: it.materials || MATERIALS,
-    xfd: it.xfd,
-    qty: it.qty,
+    xfd: it.master_xfd || it.xfd,
+    qty: it.master_qty || it.qty,
     createdAt: it.created_at,
     createdBy: it.created_by,
     planning: { done: it.planning_done, date: it.planning_date },
@@ -177,6 +239,115 @@ app.get('/api/items', async (req, res) => {
   }
 });
 
+app.get('/api/spk', async (req, res) => {
+  try {
+    const search = normalizeSpk(req.query.search || '');
+    if (!search) return res.json([]);
+    const masters = (await pool.query(
+      'SELECT spk, style, customer, xfd, qty FROM spk_master WHERE spk ILIKE $1 ORDER BY CASE WHEN spk=$2 THEN 0 WHEN spk ILIKE $3 THEN 1 ELSE 2 END, spk LIMIT 20',
+      [`%${search}%`, search, `${search}%`]
+    )).rows;
+    if (!masters.length) return res.json([]);
+    const requested = (await pool.query(
+      'SELECT spk, materials FROM items WHERE spk = ANY($1::text[])',
+      [masters.map(master => master.spk)]
+    )).rows;
+    const requestedBySpk = new Map();
+    for (const row of requested) {
+      if (!requestedBySpk.has(row.spk)) requestedBySpk.set(row.spk, new Set());
+      for (const material of row.materials || []) requestedBySpk.get(row.spk).add(material);
+    }
+    res.json(masters.map(master => ({
+      ...master,
+      requestedMaterials: [...(requestedBySpk.get(master.spk) || [])]
+    })));
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Gagal mencari SPK.' });
+  }
+});
+
+app.get('/api/spk/template.xlsx', async (req, res) => {
+  try {
+    const workbook = await buildSpkTemplateWorkbook();
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename="Template-Master-SPK.xlsx"');
+    await workbook.xlsx.write(res);
+    res.end();
+  } catch (e) {
+    console.error(e);
+    if (!res.headersSent) res.status(500).json({ error: 'Gagal membuat template Excel.' });
+  }
+});
+
+app.post('/api/spk/import', requirePerm('importSpk'), express.raw({
+  type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  limit: '15mb'
+}), async (req, res) => {
+  let client;
+  try {
+    if (!Buffer.isBuffer(req.body) || req.body.length === 0) {
+      return res.status(400).json({ error: 'Pilih file Excel .xlsx terlebih dahulu.' });
+    }
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(req.body);
+    const worksheet = workbook.worksheets[0];
+    if (!worksheet || worksheet.rowCount < 2) {
+      return res.status(400).json({ error: 'File Excel belum berisi data SPK.' });
+    }
+    const headerColumns = {};
+    worksheet.getRow(1).eachCell((cell, column) => {
+      headerColumns[excelCellText(cell.value).toUpperCase()] = column;
+    });
+    const requiredHeaders = ['SPK', 'STYLE', 'CUSTOMER', 'XFD', 'QTY'];
+    const missingHeaders = requiredHeaders.filter(header => !headerColumns[header]);
+    if (missingHeaders.length) {
+      return res.status(400).json({ error: `Kolom wajib tidak ditemukan: ${missingHeaders.join(', ')}.` });
+    }
+    const records = new Map();
+    for (let rowNumber = 2; rowNumber <= worksheet.rowCount; rowNumber++) {
+      const row = worksheet.getRow(rowNumber);
+      const values = Object.fromEntries(requiredHeaders.map(header => [header, row.getCell(headerColumns[header]).value]));
+      if (requiredHeaders.every(header => excelCellText(values[header]) === '')) continue;
+      const record = {
+        spk: normalizeSpk(excelCellText(values.SPK)),
+        style: excelCellText(values.STYLE),
+        customer: excelCellText(values.CUSTOMER),
+        xfd: excelDate(values.XFD),
+        qty: Number(values.QTY)
+      };
+      if (!record.spk || !record.style || !record.customer || !validDate(record.xfd) || !Number.isInteger(record.qty) || record.qty <= 0) {
+        return res.status(400).json({ error: `Data baris ${rowNumber} tidak valid. Isi SPK, STYLE, CUSTOMER, XFD, dan QTY dengan benar.` });
+      }
+      records.set(record.spk, record);
+      if (records.size > 10000) return res.status(400).json({ error: 'Maksimal 10.000 SPK per file.' });
+    }
+    if (!records.size) return res.status(400).json({ error: 'Tidak ada baris SPK yang dapat diimpor.' });
+
+    client = await pool.connect();
+    await client.query('BEGIN');
+    for (const record of records.values()) {
+      await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [record.spk]);
+      await client.query(
+        `INSERT INTO spk_master (spk, style, customer, xfd, qty, updated_at)
+         VALUES ($1,$2,$3,$4,$5,now())
+         ON CONFLICT (spk) DO UPDATE SET style=EXCLUDED.style, customer=EXCLUDED.customer,
+           xfd=EXCLUDED.xfd, qty=EXCLUDED.qty, updated_at=now()`,
+        [record.spk, record.style, record.customer, record.xfd, record.qty]
+      );
+    }
+    await client.query('COMMIT');
+    res.json({ imported: records.size });
+  } catch (e) {
+    if (client) await client.query('ROLLBACK');
+    console.error(e);
+    if (e.status) return res.status(e.status).json({ error: e.message });
+    res.status(500).json({ error: 'Gagal mengimpor data SPK.' });
+  } finally {
+    if (client) client.release();
+  }
+});
+
 app.get('/api/export.xlsx', async (req, res) => {
   try {
     const workbook = await buildExportWorkbook(await getFullItems());
@@ -190,45 +361,85 @@ app.get('/api/export.xlsx', async (req, res) => {
   }
 });
 
-app.post('/api/items', requirePerm('addItem'), async (req, res) => {
-  const { spk, customer, materials, xfd, qty } = req.body || {};
-  const customerName = typeof customer === 'string' ? customer.trim() : '';
-  const requestedMaterials = Array.isArray(materials) ? [...new Set(materials)] : [];
-  if (!spk || !customerName || !xfd || !qty || qty <= 0 || requestedMaterials.length === 0 || requestedMaterials.some(material => !MATERIALS.includes(material))) {
-    return res.status(400).json({ error: 'SPK, Customer, XFD, QTY, dan minimal satu material wajib diisi.' });
+async function createRequest(client, role, item) {
+  const spk = normalizeSpk(item.spk);
+  const requestedMaterials = Array.isArray(item.materials) ? [...new Set(item.materials)] : [];
+  if (!spk || !requestedMaterials.length || requestedMaterials.some(material => !MATERIALS.includes(material))) {
+    const error = new Error('SPK dan minimal satu material yang valid wajib dipilih.');
+    error.status = 400;
+    throw error;
+  }
+  await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [spk]);
+  let master = (await client.query('SELECT * FROM spk_master WHERE spk=$1', [spk])).rows[0];
+  if (!master) {
+    const style = typeof item.style === 'string' ? item.style.trim() : '';
+    const customer = typeof item.customer === 'string' ? item.customer.trim() : '';
+    const xfd = item.xfd;
+    const qty = Number(item.qty);
+    if (!style || !customer || !validDate(xfd) || !Number.isInteger(qty) || qty <= 0) {
+      const error = new Error('SPK baru wajib dilengkapi STYLE, CUSTOMER, XFD, dan QTY yang valid.');
+      error.status = 400;
+      throw error;
+    }
+    master = (await client.query(
+      'INSERT INTO spk_master (spk, style, customer, xfd, qty) VALUES ($1,$2,$3,$4,$5) RETURNING *',
+      [spk, style, customer, xfd, qty]
+    )).rows[0];
+  }
+  const existing = (await client.query('SELECT materials FROM items WHERE spk=$1', [spk])).rows;
+  const usedMaterials = new Set(existing.flatMap(row => row.materials || []));
+  const duplicates = requestedMaterials.filter(material => usedMaterials.has(material));
+  if (duplicates.length) {
+    const error = new Error(`Material sudah pernah diminta untuk ${spk}: ${duplicates.join(', ')}.`);
+    error.status = 409;
+    throw error;
   }
   const id = crypto.randomUUID();
-  await pool.query(
-    'INSERT INTO items (id, spk, customer, materials, xfd, qty, created_by, planning_done, planning_date) VALUES ($1,$2,$3,$4,$5,$6,$7,true,CURRENT_DATE)',
-    [id, spk, customerName, requestedMaterials, xfd, qty, req.role]
+  await client.query(
+    `INSERT INTO items (id, spk, style, customer, materials, xfd, qty, created_by, planning_done, planning_date)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,true,CURRENT_DATE)`,
+    [id, spk, master.style, master.customer, requestedMaterials, master.xfd, master.qty, role]
   );
-  res.json(await getFullItems());
+  return id;
+}
+
+app.post('/api/items', requirePerm('addItem'), async (req, res) => {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await createRequest(client, req.role, req.body || {});
+    await client.query('COMMIT');
+    res.json(await getFullItems());
+  } catch (e) {
+    await client.query('ROLLBACK');
+    if (e.status) return res.status(e.status).json({ error: e.message });
+    console.error(e);
+    res.status(500).json({ error: 'Gagal menyimpan request.' });
+  } finally {
+    client.release();
+  }
 });
 
 app.post('/api/items/bulk', requirePerm('addItem'), async (req, res) => {
+  let client;
   try {
     const { items } = req.body || {};
     if (!Array.isArray(items) || items.length === 0) return res.status(400).json({ error: 'Array items wajib diisi.' });
     const limited = items.slice(0, 200);
-    const missingCustomer = limited.some(item => item.spk && item.xfd && Number(item.qty) > 0 && !String(item.customer || '').trim());
-    if (missingCustomer) return res.status(400).json({ error: 'Customer wajib diisi untuk setiap request.' });
-    const missingMaterials = limited.some(item => item.spk && item.xfd && Number(item.qty) > 0 && (!Array.isArray(item.materials) || !item.materials.length || item.materials.some(material => !MATERIALS.includes(material))));
-    if (missingMaterials) return res.status(400).json({ error: 'Pilih minimal satu material yang valid untuk setiap request.' });
+    client = await pool.connect();
+    await client.query('BEGIN');
     for (const item of limited) {
-      const { spk, customer, materials, xfd, qty } = item;
-      if (!spk || !xfd || !qty || Number(qty) <= 0) continue;
-      const customerName = String(customer || '').trim();
-      const requestedMaterials = Array.isArray(materials) ? [...new Set(materials)] : [];
-      const id = crypto.randomUUID();
-      await pool.query(
-        'INSERT INTO items (id, spk, customer, materials, xfd, qty, created_by, planning_done, planning_date) VALUES ($1,$2,$3,$4,$5,$6,$7,true,CURRENT_DATE)',
-        [id, spk, customerName, requestedMaterials, xfd, Number(qty), req.role]
-      );
+      await createRequest(client, req.role, item || {});
     }
+    await client.query('COMMIT');
     res.json(await getFullItems());
   } catch (e) {
+    if (client) await client.query('ROLLBACK');
+    if (e.status) return res.status(e.status).json({ error: e.message });
     console.error(e);
     res.status(500).json({ error: 'Gagal menyimpan data.' });
+  } finally {
+    if (client) client.release();
   }
 });
 

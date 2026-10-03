@@ -44,6 +44,7 @@ async function buildExportWorkbook(items) {
     const worksheet = workbook.addWorksheet(sheet.name);
     worksheet.columns = [
       { header: 'SPK', key: 'spk', width: 20 },
+      { header: 'STYLE', key: 'style', width: 20 },
       { header: 'Customer', key: 'customer', width: 24 },
       { header: 'Tanggal Request', key: 'requestDate', width: 20, style: { numFmt: 'dd mmm yyyy' } },
       { header: 'XFD', key: 'xfd', width: 16, style: { numFmt: 'dd mmm yyyy' } },
@@ -61,6 +62,7 @@ async function buildExportWorkbook(items) {
       const isTakenComplete = materialsComplete(item.pengambilan.history, item.qty, materials);
       const row = {
         spk: item.spk,
+        style: item.style || '',
         customer: item.customer,
         requestDate: item.createdAt ? new Date(item.createdAt) : null,
         xfd: item.xfd,
@@ -84,4 +86,23 @@ async function buildExportWorkbook(items) {
   return workbook;
 }
 
+async function buildSpkTemplateWorkbook() {
+  const workbook = new ExcelJS.Workbook();
+  workbook.creator = 'Marketing System';
+  const worksheet = workbook.addWorksheet('MASTER SPK');
+  worksheet.columns = [
+    { header: 'SPK', key: 'spk', width: 22 },
+    { header: 'STYLE', key: 'style', width: 22 },
+    { header: 'CUSTOMER', key: 'customer', width: 36 },
+    { header: 'XFD', key: 'xfd', width: 16, style: { numFmt: 'dd/mm/yyyy' } },
+    { header: 'QTY', key: 'qty', width: 14 }
+  ];
+  worksheet.views = [{ state: 'frozen', ySplit: 1 }];
+  worksheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+  worksheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1C2333' } };
+  worksheet.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: 5 } };
+  return workbook;
+}
+
+buildExportWorkbook.buildSpkTemplate = buildSpkTemplateWorkbook;
 module.exports = buildExportWorkbook;

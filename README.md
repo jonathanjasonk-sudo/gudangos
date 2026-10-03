@@ -43,13 +43,16 @@ QC: {
 	}
 }
 ```
-Setelah itu, tambahkan `PASS_QC` beserta password-nya di **Variables** service Railway, lalu deploy ulang. Jangan menulis password asli di `accounts.js` atau meng-commit-nya ke GitHub. `apiPermissions` menentukan akses endpoint (`planning`, `addItem`, `whReady`, `pengambilan`, `returanAdd`, `returanConfirm`); `uiPermissions` menentukan tombol yang tersedia di halaman.
+Setelah itu, tambahkan `PASS_QC` beserta password-nya di **Variables** service Railway, lalu deploy ulang. Jangan menulis password asli di `accounts.js` atau meng-commit-nya ke GitHub. `apiPermissions` menentukan akses endpoint (`planning`, `addItem`, `importSpk`, `whReady`, `pengambilan`, `returanAdd`, `returanConfirm`); `uiPermissions` menentukan tombol yang tersedia di halaman.
 
 ### 5. Selesai
 Railway akan memberi Anda URL publik (misalnya `namaservis.up.railway.app`). Buka URL itu, dan aplikasi sudah bisa dipakai oleh siapa saja yang Anda beri linknya, dengan data tersimpan permanen di database.
 
 ## Alur dan akses
-- **Request Produksi** — akun Produksi mengisi SPK, Customer, XFD, dan QTY; request tampil sebelum pencatatan Ready/Taken dimulai.
+- **Request Produksi** — akun Produksi memilih SPK dan material; request tampil sebelum pencatatan Ready/Taken dimulai.
+- **Master SPK** — akun Marketing atau Master mengimpor file `.xlsx` dengan kolom `SPK`, `STYLE`, `CUSTOMER`, `XFD`, `QTY`. Template header dapat diunduh dari Dashboard. Impor ulang dengan SPK yang sama memperbarui data master.
+- **Pencarian request** — STYLE, CUSTOMER, XFD, dan QTY dari master terisi otomatis. SPK yang tidak ditemukan dapat dibuat manual dan otomatis disimpan sebagai master. Penulisan SPK otomatis menjadi huruf besar.
+- **Request material** — satu SPK dapat memiliki beberapa request untuk material berbeda. Material yang sudah pernah diminta tidak dapat diminta ulang untuk SPK tersebut.
 - **Marketing Ready** — akun Marketing mencatat material yang siap, per material dan qty; tetap terlihat selama Taken belum lengkap.
 - **Taken** — akun Marketing mencatat material yang diambil; request selesai setelah semua 4 material mencapai QTY.
 - **History Taken** — mencatat Customer, material, dan tanggal saat seluruh material selesai diambil.

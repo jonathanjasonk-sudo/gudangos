@@ -194,6 +194,21 @@
   .del-row-btn:hover{color:var(--red);background:var(--red-bg);}
   .bulk-actions{display:flex;gap:10px;margin-top:10px;align-items:center;flex-wrap:wrap;}
   .bulk-hint{font-size:11.5px;color:var(--text2);}
+  .spk-request-form{background:#fff;border:1px solid var(--line);border-radius:10px;padding:16px;margin-bottom:16px;display:grid;gap:12px;}
+  .spk-request-form label{display:block;font-size:11.5px;color:var(--text2);margin-bottom:4px;}
+  .spk-request-form input[type=text],.spk-request-form input[type=date],.spk-request-form input[type=number]{width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:7px;font-size:13px;}
+  .spk-suggestions{display:grid;gap:4px;margin-top:6px;}
+  .spk-suggestions button{background:#fff;border:1px solid var(--line);border-radius:6px;padding:8px 10px;text-align:left;cursor:pointer;color:var(--text);}
+  .spk-suggestions button:hover{border-color:var(--amber);background:#FFFAF0;}
+  .spk-master-details{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;padding:11px;background:#F5F6FA;border-radius:7px;font-size:12px;}
+  .spk-master-details span{display:block;color:var(--text2);font-size:10px;text-transform:uppercase;}
+  .spk-manual-fields{display:grid;grid-template-columns:repeat(4,minmax(120px,1fr));gap:9px;}
+  .spk-material-options{display:flex;flex-wrap:wrap;gap:8px;}
+  .spk-material-options label{display:flex;align-items:center;gap:5px;padding:7px 9px;border:1px solid var(--line);border-radius:6px;margin:0;color:var(--text);cursor:pointer;}
+  .spk-material-options input{accent-color:var(--amber-d);}
+  .spk-form-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+  .spk-import-input{display:none;}
+  @media(max-width:760px){.spk-manual-fields{grid-template-columns:1fr 1fr;}}
   .col-stage{width:130px;}
   .bulk-table select{width:100%;padding:6px 8px;border:1px solid var(--line);border-radius:6px;font-size:13px;}
   .del-spk-btn{background:none;border:1px solid var(--line);color:var(--text2);cursor:pointer;padding:4px 8px;border-radius:6px;font-size:13px;line-height:1;white-space:nowrap;flex-shrink:0;}
@@ -531,6 +546,12 @@ let state = {
   loginRoleSel: null,
   loginErr: '',
   addOpen: false,
+  spkQuery: '',
+  spkResults: [],
+  spkSelected: null,
+  spkLookupState: '',
+  manualSpkEntry: false,
+  spkSearchTimer: null,
   loading: true
 };
 
@@ -618,6 +639,7 @@ function perm(){
   const permissions = ROLE_INFO[state.role]?.uiPermissions || {};
   return {
     canAddItem: !!permissions.canAddItem,
+    canImportSpk: !!permissions.canImportSpk,
     canDeleteItem: !!permissions.canDeleteItem,
     canEditWhReady: !!permissions.canEditWhReady,
     canEditPengambilan: !!permissions.canEditPengambilan
@@ -684,7 +706,7 @@ function renderStage(stage,p){
     return matches&&(!query||it.spk.toLowerCase().includes(query))&&matchesComponentFilter(it);
   });
   return `<div class="toolbar"><input type="text" id="searchBox" placeholder="Cari SPK..." value="${esc(state.search)}" />${renderComponentFilter()}${stage==='request'&&p.canAddItem?`<button class="btn amber" id="toggleAdd">${state.addOpen?'Tutup':'+ Request Produksi'}</button>`:''}</div>
-    ${stage==='request'&&p.canAddItem&&state.addOpen?renderBulkForm():''}
+    ${stage==='request'&&p.canAddItem&&state.addOpen?renderRequestForm():''}
     <div class="pipeline-title">${titles[stage]} (${items.length})</div>
     ${items.length?items.map(it=>renderItemCard(it,p)).join(''):'<div class="empty">Belum ada data pada bagian ini.</div>'}`;
 }
@@ -740,7 +762,7 @@ function renderDashboard(){
   ];
   const completedTaken=items.filter(it=>materialsComplete(it.pengambilan.history,it.qty,itemMaterials(it)));
   const complete=matchingItems.filter(it=>materialsComplete(it.pengambilan.history,it.qty,itemMaterials(it))).length;
-  return `<div class="toolbar"><input type="text" id="dashSearch" placeholder="Cari SPK di dashboard..." value="${esc(query)}" autocomplete="off" />${renderComponentFilter()}${perm().canAddItem?'<button class="btn amber" id="dashboardAddRequest">+ Request Produksi</button>':''}<button class="btn ghost" id="exportExcel" title="Unduh tiga sheet Excel">↓ Export Excel</button></div>
+  return `<div class="toolbar"><input type="text" id="dashSearch" placeholder="Cari SPK di dashboard..." value="${esc(query)}" autocomplete="off" />${renderComponentFilter()}${perm().canAddItem?'<button class="btn amber" id="dashboardAddRequest">+ Request Produksi</button>':''}${perm().canImportSpk?'<button class="btn ghost" id="importSpkButton">↑ Import Master SPK</button><button class="btn ghost" id="spkTemplateButton">↓ Template SPK</button><input class="spk-import-input" type="file" id="spkImportInput" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">':''}<button class="btn ghost" id="exportExcel" title="Unduh tiga sheet Excel">↓ Export Excel</button></div>
     <div class="summary-cards">
       <div class="scard"><div class="num">${matchingItems.length}</div><div class="lbl">Total Request</div></div>
       <div class="scard"><div class="num">${stages[0].items.length}</div><div class="lbl">Request Produksi</div></div>
@@ -755,7 +777,7 @@ function renderDashboard(){
         <button class="dashboard-stage-link" data-tab="${stage.key}">Lihat semua</button>
         ${stage.items.length?stage.items.map(it=>`<div class="kcard" data-goto="${it.id}" data-stage="${stage.key}">
           <div class="kcard-head"><div class="kcard-spk">${esc(it.spk)}</div><span class="kcard-customer" title="Customer: ${esc(it.customer||'Customer belum diisi')}">${esc(it.customer||'Customer belum diisi')}</span></div>
-          <div class="kcard-xfd">XFD ${fmtDate(it.xfd)}</div><div class="kcard-qty">QTY ${it.qty}</div>
+          <div class="kcard-xfd">${it.style?`STYLE ${esc(it.style)} · `:''}XFD ${fmtDate(it.xfd)}</div><div class="kcard-qty">QTY ${it.qty}</div>
           ${stage.key==='request'?renderDashboardMaterialRequest(it):renderDashboardMaterialProgress(it)}
         </div>`).join(''):'<div class="kcol-empty">Belum ada request</div>'}
       </div>`).join('')}
@@ -792,40 +814,20 @@ function renderData(p){
   `;
 }
 
-function renderBulkForm(){
-  const d = todayStr();
-  const rows = [0,1,2].map(i=>`
-    <tr>
-      <td class="col-no">${i+1}</td>
-      <td><input type="text" class="bulk-spk" placeholder="SPK-001" /></td>
-      <td class="col-customer"><input type="text" class="bulk-customer" placeholder="Customer" list="customerSuggestions" required /></td>
-      <td class="col-xfd"><input type="date" class="bulk-xfd" value="${d}" /></td>
-      <td class="col-qty"><input type="number" class="bulk-qty" min="1" placeholder="1000" /></td>
-      <td><div class="bulk-materials">${MATERIALS.map(material=>`<label><input type="checkbox" class="request-material" value="${material}">${material}</label>`).join('')}</div></td>
-      <td class="col-del"><button class="del-row-btn" type="button">✕</button></td>
-    </tr>`).join('');
-  return `
-  <div class="bulk-wrap" id="bulkWrap">
-    <h3>Tambah SPK Baru (bisa banyak sekaligus)</h3>
-    <div class="request-date-label">Tanggal request: ${fmtDate(d)} (otomatis saat disimpan)</div>
-    <datalist id="customerSuggestions">${CUSTOMERS.map(customer=>`<option value="${esc(customer)}"></option>`).join('')}</datalist>
-    <div class="bulk-table-wrap"><table class="bulk-table">
-      <thead><tr>
-        <th class="col-no">#</th>
-        <th>SPK</th>
-        <th class="col-customer">Customer</th>
-        <th class="col-xfd">XFD (Tanggal)</th>
-        <th class="col-qty">QTY</th>
-        <th>Material Dibutuhkan</th>
-        <th class="col-del"></th>
-      </tr></thead>
-      <tbody id="bulkTbody">${rows}</tbody>
-    </table></div>
-    <div class="bulk-actions">
-      <button class="btn ghost sm" id="addBulkRow">+ Tambah Baris</button>
-      <button class="btn amber" id="saveBulkItems">Simpan Semua</button>
-      <span class="bulk-hint">Baris kosong akan diabaikan</span>
+function renderRequestForm(){
+  const selected=state.spkSelected;
+  const manual=state.manualSpkEntry;
+  const available=selected?MATERIALS.filter(material=>!(selected.requestedMaterials||[]).includes(material)):MATERIALS;
+  const exactMatch=state.spkResults.some(master=>master.spk===state.spkQuery);
+  const manualOption=state.spkLookupState==='empty'||(state.spkLookupState==='results'&&state.spkQuery&&!exactMatch);
+  const lookup=state.spkLookupState==='loading'?'<div class="bulk-hint">Mencari SPK...</div>':manualOption?`<button type="button" class="btn ghost sm" id="manualSpkButton">SPK tidak ditemukan persis. Input detail manual untuk ${esc(state.spkQuery)}</button>`:'';
+  return `<div class="spk-request-form" id="requestForm">
+    <div><label for="requestSpkInput">Cari SPK</label><input type="text" id="requestSpkInput" value="${esc(state.spkQuery)}" placeholder="Ketik nomor SPK" autocomplete="off" />
+      ${lookup}${state.spkResults.length&&!selected?`<div class="spk-suggestions">${state.spkResults.map((master,index)=>`<button type="button" data-spk-result="${index}"><strong>${esc(master.spk)}</strong> · ${esc(master.style)} · ${esc(master.customer)}</button>`).join('')}</div>`:''}
     </div>
+    ${selected?`<div class="spk-master-details"><div><span>Style</span><strong>${esc(selected.style)}</strong></div><div><span>Customer</span><strong>${esc(selected.customer)}</strong></div><div><span>XFD</span><strong>${fmtDate(selected.xfd)}</strong></div><div><span>QTY</span><strong>${selected.qty}</strong></div></div>`:''}
+    ${manual?`<div class="spk-manual-fields"><div><label for="manualStyle">STYLE</label><input type="text" id="manualStyle" placeholder="STYLE" /></div><div><label for="manualCustomer">CUSTOMER</label><input type="text" id="manualCustomer" placeholder="CUSTOMER" /></div><div><label for="manualXfd">XFD</label><input type="date" id="manualXfd" value="${todayStr()}" /></div><div><label for="manualQty">QTY</label><input type="number" id="manualQty" min="1" placeholder="QTY" /></div></div>`:''}
+    ${(selected||manual)?`<div><label>Material dibutuhkan</label>${available.length?`<div class="spk-material-options">${available.map(material=>`<label><input type="checkbox" class="request-material-choice" value="${esc(material)}">${esc(material)}</label>`).join('')}</div>`:'<div class="bulk-hint">Semua material untuk SPK ini sudah pernah diminta.</div>'}</div><div class="spk-form-actions"><button class="btn amber" id="saveSpkRequest" ${available.length?'':'disabled'}>Simpan Request</button><button class="btn ghost" id="cancelSpkRequest">Batal</button></div>`:''}
   </div>`;
 }
 
@@ -996,7 +998,7 @@ function renderItemCard(it,p){
   const stageLabel=state.tab==='request'?'Request Produksi':state.tab==='ready'?'Marketing Ready':'Taken';
   return `<div class="item-card">
     <div class="item-head" data-toggle="${it.id}">
-      <div><div class="spk">${esc(it.spk)}</div><div class="meta">Request ${fmtDate(it.createdAt)} · XFD ${fmtDate(it.xfd)} · QTY ${it.qty}</div></div>
+      <div><div class="spk">${esc(it.spk)}</div><div class="meta">${it.style?`STYLE ${esc(it.style)} · `:''}Request ${fmtDate(it.createdAt)} · XFD ${fmtDate(it.xfd)} · QTY ${it.qty}</div></div>
       <div class="stages-mini"><span class="stat-pill pending">${stageLabel}</span><span class="stat-pill ${readyCount===materials.length?'ok':'partial'}">Ready ${readyCount}/${materials.length}</span><span class="stat-pill ${takenCount===materials.length?'ok':'pending'}">Taken ${takenCount}/${materials.length}</span>${p.canDeleteItem?`<button class="del-spk-btn" data-del-item="${it.id}" title="Hapus request">Hapus</button>`:''}</div>
     </div>
     <div class="item-body ${isOpen?'open':''}">${isOpen?renderItemDetail(it,p):''}</div>
@@ -1114,57 +1116,122 @@ function attachEvents(){
     }catch(e){ showToast(e.message); }
     finally{ exportExcel.disabled=false; }
   };
+  const spkTemplateButton = document.getElementById('spkTemplateButton');
+  if(spkTemplateButton) spkTemplateButton.onclick = async ()=>{
+    spkTemplateButton.disabled=true;
+    try{
+      const headers={};
+      if(state.token) headers['x-auth-token']=state.token;
+      const response=await fetch('/api/spk/template.xlsx',{headers});
+      if(!response.ok){
+        const error=await response.json().catch(()=>({}));
+        throw new Error(error.error||'Gagal mengunduh template Excel.');
+      }
+      const url=URL.createObjectURL(await response.blob());
+      const link=document.createElement('a');
+      link.href=url; link.download='Template-Master-SPK.xlsx';
+      document.body.appendChild(link); link.click(); link.remove();
+      setTimeout(()=>URL.revokeObjectURL(url),1000);
+      showToast('Template Master SPK berhasil diunduh.');
+    }catch(e){ showToast(e.message); }
+    finally{ spkTemplateButton.disabled=false; }
+  };
+  const importSpkButton = document.getElementById('importSpkButton');
+  const spkImportInput = document.getElementById('spkImportInput');
+  if(importSpkButton&&spkImportInput) importSpkButton.onclick=()=>spkImportInput.click();
+  if(spkImportInput) spkImportInput.onchange=async ()=>{
+    const file=spkImportInput.files[0];
+    if(!file) return;
+    importSpkButton.disabled=true;
+    try{
+      const headers={'Content-Type':'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'};
+      if(state.token) headers['x-auth-token']=state.token;
+      const response=await fetch('/api/spk/import',{method:'POST',headers,body:file});
+      const result=await response.json();
+      if(!response.ok) throw new Error(result.error||'Gagal mengimpor data SPK.');
+      state.items=await api('/items');
+      render();
+      showToast(`${result.imported} data SPK berhasil diimpor/diperbarui.`);
+    }catch(e){ showToast(e.message); }
+    finally{ importSpkButton.disabled=false; spkImportInput.value=''; }
+  };
   const dashboardAdd = document.getElementById('dashboardAddRequest');
   if(dashboardAdd) dashboardAdd.onclick = ()=>{ state.tab='request'; state.addOpen=true; render(); };
   const toggleAdd = document.getElementById('toggleAdd');
   if(toggleAdd) toggleAdd.onclick = ()=>{ state.addOpen = !state.addOpen; render(); };
 
-  // Bulk form: add row
-  const addBulkRowBtn = document.getElementById('addBulkRow');
-  if(addBulkRowBtn){
-    addBulkRowBtn.onclick = ()=>{
-      const tbody = document.getElementById('bulkTbody');
-      const idx = tbody.rows.length;
-      const tr = document.createElement('tr');
-      tr.innerHTML = `<td class="col-no">${idx+1}</td><td><input type="text" class="bulk-spk" placeholder="SPK-001" /></td><td class="col-customer"><input type="text" class="bulk-customer" placeholder="Customer" list="customerSuggestions" required /></td><td class="col-xfd"><input type="date" class="bulk-xfd" value="${todayStr()}" /></td><td class="col-qty"><input type="number" class="bulk-qty" min="1" placeholder="1000" /></td><td><div class="bulk-materials">${MATERIALS.map(material=>`<label><input type="checkbox" class="request-material" value="${material}">${material}</label>`).join('')}</div></td><td class="col-del"><button class="del-row-btn" type="button">✕</button></td>`;
-      tr.querySelector('.del-row-btn').onclick = () => delBulkRow(tr);
-      tbody.appendChild(tr);
-      tr.querySelector('.bulk-spk').focus();
-    };
-    document.querySelectorAll('#bulkTbody .del-row-btn').forEach(btn=>{
-      btn.onclick = () => delBulkRow(btn.closest('tr'));
-    });
-  }
-
-  // Bulk form: save all
-  const saveBulkBtn = document.getElementById('saveBulkItems');
-  if(saveBulkBtn){
-    saveBulkBtn.onclick = async ()=>{
-      const rows = [];
-      let missingCustomer = false;
-      document.querySelectorAll('#bulkTbody tr').forEach(tr=>{
-        const spk = tr.querySelector('.bulk-spk').value.trim();
-        const customer = tr.querySelector('.bulk-customer').value.trim();
-        const xfd = tr.querySelector('.bulk-xfd').value;
-        const qty = Number(tr.querySelector('.bulk-qty').value);
-        const materials = [...tr.querySelectorAll('.request-material:checked')].map(input=>input.value);
-        if(spk && xfd && qty>0){
-          if(!customer) missingCustomer = true;
-          else if(!materials.length){ showToast(`Pilih minimal satu material untuk ${spk}.`); rows.invalid=true; }
-          else rows.push({spk,customer,xfd,qty,materials});
-        }
-      });
-      if(missingCustomer){ showToast('Customer wajib diisi untuk setiap request.'); return; }
-      if(rows.invalid) return;
-      if(rows.length===0){ showToast('Minimal 1 baris SPK harus diisi.'); return; }
-      saveBulkBtn.disabled=true; saveBulkBtn.textContent='Menyimpan...';
+  const requestSpkInput=document.getElementById('requestSpkInput');
+  if(requestSpkInput) requestSpkInput.oninput=e=>{
+    const query=e.target.value.toUpperCase();
+    state.spkQuery=query;
+    state.spkSelected=null;
+    state.manualSpkEntry=false;
+    state.spkResults=[];
+    state.spkLookupState=query?'loading':'';
+    clearTimeout(state.spkSearchTimer);
+    render();
+    const input=document.getElementById('requestSpkInput');
+    input.focus(); input.setSelectionRange(query.length,query.length);
+    if(query) state.spkSearchTimer=setTimeout(async ()=>{
       try{
-        state.items = await api('/items/bulk',{method:'POST',body:JSON.stringify({items:rows})});
-        state.addOpen=false; render();
-        showToast(`${rows.length} SPK berhasil disimpan.`);
-      }catch(e){ showToast(e.message); saveBulkBtn.disabled=false; saveBulkBtn.textContent='Simpan Semua'; }
+        const results=await api(`/spk?search=${encodeURIComponent(query)}`);
+        if(state.spkQuery!==query) return;
+        state.spkResults=results;
+        state.spkLookupState=results.length?'results':'empty';
+        render();
+        const current=document.getElementById('requestSpkInput');
+        if(current){ current.focus(); current.setSelectionRange(query.length,query.length); }
+      }catch(error){
+        if(state.spkQuery!==query) return;
+        state.spkLookupState='empty';
+        render();
+        showToast(error.message);
+      }
+    },250);
+  };
+  app.querySelectorAll('[data-spk-result]').forEach(button=>{
+    button.onclick=()=>{
+      state.spkSelected=state.spkResults[Number(button.dataset.spkResult)];
+      state.spkQuery=state.spkSelected.spk;
+      state.spkResults=[];
+      state.spkLookupState='selected';
+      state.manualSpkEntry=false;
+      render();
     };
-  }
+  });
+  const manualSpkButton=document.getElementById('manualSpkButton');
+  if(manualSpkButton) manualSpkButton.onclick=()=>{
+    state.manualSpkEntry=true;
+    state.spkLookupState='';
+    state.spkResults=[];
+    render();
+  };
+  const cancelSpkRequest=document.getElementById('cancelSpkRequest');
+  if(cancelSpkRequest) cancelSpkRequest.onclick=()=>{
+    state.addOpen=false;
+    state.spkQuery=''; state.spkResults=[]; state.spkSelected=null; state.manualSpkEntry=false;
+    render();
+  };
+  const saveSpkRequest=document.getElementById('saveSpkRequest');
+  if(saveSpkRequest) saveSpkRequest.onclick=async ()=>{
+    const materials=[...document.querySelectorAll('.request-material-choice:checked')].map(input=>input.value);
+    if(!materials.length){ showToast('Pilih minimal satu material.'); return; }
+    const item={spk:state.spkSelected?.spk||state.spkQuery,materials};
+    if(state.manualSpkEntry){
+      item.style=document.getElementById('manualStyle').value.trim();
+      item.customer=document.getElementById('manualCustomer').value.trim();
+      item.xfd=document.getElementById('manualXfd').value;
+      item.qty=Number(document.getElementById('manualQty').value);
+    }
+    saveSpkRequest.disabled=true;
+    try{
+      state.items=await api('/items',{method:'POST',body:JSON.stringify(item)});
+      state.addOpen=false;
+      state.spkQuery=''; state.spkResults=[]; state.spkSelected=null; state.manualSpkEntry=false; state.spkLookupState='';
+      render();
+      showToast('Request material berhasil disimpan.');
+    }catch(error){ showToast(error.message); saveSpkRequest.disabled=false; }
+  };
 
   // Kanban card → buka di Data SPK
   app.querySelectorAll('[data-goto]').forEach(el=>{
