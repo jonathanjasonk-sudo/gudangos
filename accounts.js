@@ -15,9 +15,9 @@ module.exports = {
     label: 'Marketing',
     full: 'Marketing Ready & Taken',
     passwordEnv: 'PASS_MARKETING',
-    apiPermissions: ['importSpk', 'exportFile', 'whReady', 'pengambilan', 'returanAdd', 'returanConfirm'],
+    apiPermissions: ['addItem', 'importSpk', 'exportFile', 'whReady', 'pengambilan', 'returanAdd', 'returanConfirm'],
     uiPermissions: {
-      canAddItem: false,
+      canAddItem: true,
       canImportSpk: true,
       canExportFiles: true,
       canDeleteItem: false,
