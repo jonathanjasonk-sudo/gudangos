@@ -206,7 +206,13 @@
   .request-batch-rows{display:grid;gap:12px;}
   .request-batch-row{border:1px solid var(--line);border-radius:8px;padding:12px;display:grid;gap:9px;}
   .request-batch-row-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
-  .request-batch-row-head input{flex:1;min-width:180px;}
+  .request-spk-field{position:relative;flex:1;min-width:180px;}
+  .request-spk-field input{width:100%;min-width:0;}
+  .request-spk-suggestions{position:absolute;top:calc(100% + 4px);left:0;right:0;z-index:25;display:grid;max-height:260px;overflow:auto;padding:5px;background:#fff;border:1px solid var(--line);border-radius:7px;box-shadow:var(--shadow-md);}
+  .request-spk-suggestions button{display:grid;gap:2px;padding:8px 9px;border:0;border-radius:5px;background:#fff;text-align:left;color:var(--text);cursor:pointer;}
+  .request-spk-suggestions button:hover,.request-spk-suggestions button:focus{background:#F3F6F2;outline:none;}
+  .request-spk-suggestions small{color:var(--text2);font-size:11px;}
+  .request-spk-suggestions .no-match{padding:8px 9px;color:var(--text2);font-size:12px;}
   .request-batch-status{font-size:12px;font-weight:600;}
   .request-batch-status.found{color:var(--green-d);}
   .request-batch-status.missing{color:var(--red-d);}
@@ -878,15 +884,16 @@ function renderRequestForm(){
 }
 
 function createRequestRow(spk=''){
-  return {id:state.requestRowSequence++,spk,status:'idle',master:null,manual:false,editSpk:false,materials:[],style:'',customer:'',xfd:todayStr(),qty:''};
+  return {id:state.requestRowSequence++,spk,status:'idle',master:null,manual:false,editSpk:false,materials:[],style:'',customer:'',xfd:todayStr(),qty:'',suggestions:[],suggestionState:'idle',suggestionTimer:null};
 }
 
 function renderRequestRow(row,index){
   const master=row.master;
   const available=master?MATERIALS.filter(material=>!(master.requestedMaterials||[]).includes(material)):MATERIALS;
   const status=row.status==='found'?`<span class="request-batch-status found">SPK ditemukan</span>`:row.status==='missing'?`<span class="request-batch-status missing">SPK ${esc(row.spk)} tidak ditemukan</span>`:row.status==='manual'?`<span class="request-batch-status missing">Input manual untuk ${esc(row.spk)}</span>`:row.status==='searching'?'<span class="request-batch-status">Mencari...</span>':'';
+  const suggestions=row.status==='idle'&&row.suggestionState!=='idle'?`<div class="request-spk-suggestions">${row.suggestionState==='loading'?'<div class="no-match">Mencari SPK...</div>':row.suggestionState==='empty'?'<div class="no-match">Tidak ada SPK yang mendekati.</div>':row.suggestions.map((suggestion,suggestionIndex)=>`<button type="button" data-select-request-suggestion="${row.id}" data-suggestion-index="${suggestionIndex}"><strong>${esc(suggestion.spk)}</strong><small>${esc(suggestion.style)} · ${esc(suggestion.customer)}</small></button>`).join('')}</div>`:'';
   return `<div class="request-batch-row" data-request-row="${row.id}">
-    <div class="request-batch-row-head"><strong>${index+1}.</strong><input type="text" class="request-batch-spk" data-row-id="${row.id}" value="${esc(row.spk)}" placeholder="SPK" autocomplete="off" ${row.status==='found'&&!row.editSpk?'disabled':''}>${status}<button class="del-row-btn" type="button" data-remove-request-row="${row.id}" title="Hapus SPK">Hapus</button></div>
+    <div class="request-batch-row-head"><strong>${index+1}.</strong><div class="request-spk-field"><input type="text" class="request-batch-spk" data-row-id="${row.id}" value="${esc(row.spk)}" placeholder="SPK" autocomplete="off">${suggestions}</div>${status}<button class="del-row-btn" type="button" data-remove-request-row="${row.id}" title="Hapus SPK">Hapus</button></div>
     ${row.status==='missing'||row.status==='manual'?`<div class="request-batch-actions"><button class="btn ghost sm" type="button" data-edit-request-spk="${row.id}">Ubah SPK</button>${row.status==='missing'?`<button class="btn ghost sm" type="button" data-manual-request-spk="${row.id}">Input Manual</button>`:''}</div>`:''}
     ${master?`<div class="spk-master-details"><div><span>STYLE</span><strong>${esc(master.style)}</strong></div><div><span>CUSTOMER</span><strong>${esc(master.customer)}</strong></div><div><span>XFD</span><strong>${fmtDate(master.xfd)}</strong></div><div><span>QTY</span><strong>${master.qty}</strong></div></div>`:''}
     ${row.manual?`<div class="spk-manual-fields"><div><label>STYLE</label><input type="text" data-row-field="style" data-row-id="${row.id}" value="${esc(row.style)}" placeholder="STYLE"></div><div><label>CUSTOMER</label><input type="text" data-row-field="customer" data-row-id="${row.id}" value="${esc(row.customer)}" placeholder="CUSTOMER"></div><div><label>XFD</label><input type="date" data-row-field="xfd" data-row-id="${row.id}" value="${esc(row.xfd)}"></div><div><label>QTY</label><input type="number" min="1" data-row-field="qty" data-row-id="${row.id}" value="${esc(row.qty)}" placeholder="QTY"></div></div>`:''}
@@ -1243,7 +1250,48 @@ function attachEvents(){
       const spk=input.value.toUpperCase();
       input.value=spk;
       const row=state.requestRows.find(entry=>entry.id===Number(input.dataset.rowId));
-      if(row){ row.spk=spk; row.status='idle'; row.master=null; row.manual=false; row.materials=[]; }
+      if(!row) return;
+      clearTimeout(row.suggestionTimer);
+      row.spk=spk;
+      row.status='idle'; row.master=null; row.manual=false; row.editSpk=false; row.materials=[]; row.suggestions=[];
+      row.suggestionState=spk?'loading':'idle';
+      const caret=input.selectionStart;
+      render();
+      const current=app.querySelector(`.request-batch-spk[data-row-id="${row.id}"]`);
+      if(current){ current.focus(); current.setSelectionRange(caret,caret); }
+      if(spk) row.suggestionTimer=setTimeout(async ()=>{
+        try{
+          const suggestions=await api(`/spk?search=${encodeURIComponent(spk)}`);
+          if(row.spk!==spk||row.status!=='idle') return;
+          row.suggestions=suggestions;
+          row.suggestionState=suggestions.length?'results':'empty';
+          render();
+          const focused=app.querySelector(`.request-batch-spk[data-row-id="${row.id}"]`);
+          if(focused){ focused.focus(); focused.setSelectionRange(caret,caret); }
+        }catch(error){
+          if(row.spk!==spk) return;
+          row.suggestionState='empty';
+          render();
+          showToast(error.message);
+        }
+      },220);
+    };
+  });
+  app.querySelectorAll('[data-select-request-suggestion]').forEach(button=>{
+    button.onclick=()=>{
+      const row=state.requestRows.find(entry=>entry.id===Number(button.dataset.selectRequestSuggestion));
+      const suggestion=row?.suggestions[Number(button.dataset.suggestionIndex)];
+      if(!row||!suggestion) return;
+      clearTimeout(row.suggestionTimer);
+      row.spk=suggestion.spk;
+      row.master=suggestion;
+      row.status='found';
+      row.manual=false;
+      row.editSpk=false;
+      row.materials=[];
+      row.suggestions=[];
+      row.suggestionState='idle';
+      render();
     };
   });
   app.querySelectorAll('[data-row-field]').forEach(input=>{
@@ -1286,7 +1334,11 @@ function attachEvents(){
     });
     const submitted=state.requestRows.filter(row=>row.spk);
     if(!submitted.length){ showToast('Masukkan minimal satu SPK.'); return; }
-    state.requestRows.forEach(row=>{ if(row.spk){ row.status='searching'; row.master=null; row.manual=false; row.materials=[]; } });
+    state.requestRows.forEach(row=>{
+      clearTimeout(row.suggestionTimer);
+      row.suggestions=[]; row.suggestionState='idle';
+      if(row.spk){ row.status='searching'; row.master=null; row.manual=false; row.materials=[]; }
+    });
     render();
     try{
       const result=await api('/spk/lookup',{method:'POST',body:JSON.stringify({spks:submitted.map(row=>row.spk)})});
