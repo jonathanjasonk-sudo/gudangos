@@ -233,7 +233,7 @@ app.post('/api/login', (req, res) => {
 async function getFullItems(req=null) {
   const productionScope=req?.role==='PRODUKSI';
   const fullAccess=['MARKETING','MASTER'].includes(req?.role);
-  const accessFilter=productionScope?"WHERE items.building=$1 OR items.created_by='MARKETING'":fullAccess?'':'WHERE false';
+  const accessFilter=productionScope?"WHERE items.building=$1 OR items.created_by IN ('MARKETING','MASTER')":fullAccess?'':'WHERE false';
   const items = (await pool.query(`
     SELECT items.*, spk_master.style AS master_style, spk_master.customer AS master_customer,
       spk_master.xfd AS master_xfd, spk_master.qty AS master_qty
@@ -510,7 +510,7 @@ async function requireBuildingOwnership(req, res, next) {
 async function requireTakenAccess(req, res, next) {
   if(req.role!=='PRODUKSI') return next();
   try{
-    const item=await pool.query("SELECT 1 FROM items WHERE id=$1 AND (building=$2 OR created_by='MARKETING')",[req.params.id,req.building]);
+    const item=await pool.query("SELECT 1 FROM items WHERE id=$1 AND (building=$2 OR created_by IN ('MARKETING','MASTER'))",[req.params.id,req.building]);
     if(!item.rowCount) return res.status(404).json({error:'Request tidak ditemukan atau tidak dapat diakses.'});
     next();
   }catch(e){

@@ -54,13 +54,13 @@ Setelah itu, tambahkan `PASS_QC` beserta password-nya di **Variables** service R
 Railway akan memberi Anda URL publik (misalnya `namaservis.up.railway.app`). Buka URL itu, dan aplikasi sudah bisa dipakai oleh siapa saja yang Anda beri linknya, dengan data tersimpan permanen di database.
 
 ## Alur dan akses
-- **Request Produksi** — akun Produksi dan Marketing dapat menambahkan beberapa SPK sekaligus; Master tetap memiliki akses yang sama. Produksi memilih gedung C, D, I, E, F, atau H saat login dan melihat request gedungnya serta request yang dibuat Marketing. Marketing dan Master dapat melihat seluruh request. Request tanpa gedung yang bukan dibuat Marketing tetap hanya terlihat oleh Marketing/Master dan tidak otomatis ditetapkan ke salah satu gedung. SPK yang tidak ditemukan ditandai satu per satu untuk diperbaiki atau diinput manual.
+- **Request Produksi** — akun Produksi dan Marketing dapat menambahkan beberapa SPK sekaligus; Master tetap memiliki akses yang sama. Produksi memilih gedung C, D, I, E, F, atau H saat login dan melihat request gedungnya serta request yang dibuat Marketing atau Master. Marketing dan Master dapat melihat seluruh request. Request tanpa gedung yang bukan dibuat Marketing/Master tetap hanya terlihat oleh Marketing/Master dan tidak otomatis ditetapkan ke salah satu gedung. SPK yang tidak ditemukan ditandai satu per satu untuk diperbaiki atau diinput manual.
 - **Master SPK** — akun Marketing atau Master mengimpor file `.xlsx` dengan kolom `SPK`, `STYLE`, `CUSTOMER`, `XFD`, `QTY`. Template header dapat diunduh dari Menu Dashboard. Impor ulang dengan SPK yang sama memperbarui data master.
 - **Import History** — tab Marketing/Master menampilkan waktu, nama file, akun pengimpor, serta jumlah SPK baru dan diperbarui.
 - **Pencarian request** — STYLE, CUSTOMER, XFD, dan QTY dari master terisi otomatis. SPK yang tidak ditemukan dapat dibuat manual dan otomatis disimpan sebagai master. Penulisan SPK otomatis menjadi huruf besar.
 - **Request material** — satu SPK dapat memiliki beberapa request untuk material berbeda. Material yang sudah pernah diminta tidak dapat diminta ulang untuk SPK tersebut.
 - **Marketing Ready** — akun Marketing mencatat material yang siap, per material dan qty; tetap terlihat selama Taken belum lengkap.
-- **Taken** — akun Marketing, Produksi, dan Master dapat mencatat material yang diambil. Produksi dapat mencatat untuk request Marketing dari gedung mana pun, tetapi request yang dibuat Produksi tetap dibatasi ke gedung pembuatnya. Request selesai setelah semua 4 material mencapai QTY.
+- **Taken** — akun Marketing, Produksi, dan Master dapat mencatat material yang diambil. Produksi dapat mencatat untuk request Marketing atau Master dari gedung mana pun, tetapi request yang dibuat Produksi tetap dibatasi ke gedung pembuatnya. Request selesai setelah semua 4 material mencapai QTY.
 - **History Taken** — tersedia di tab Taken, satu baris per pencatatan komponen dengan qty, tanggal ambil, dan PIC.
 - **Master** — akses penuh ke request, Marketing Ready, dan Taken.
 - Material yang dicatat: Shoe Box, Size Label, Karton Label, dan Marking.
