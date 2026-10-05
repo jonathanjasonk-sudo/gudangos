@@ -793,15 +793,20 @@ function renderTakenHistory(items){
     const chronological=MATERIALS.flatMap(material=>group.events[material].map(entry=>({material,entry})))
       .sort((left,right)=>new Date(left.entry.date)-new Date(right.entry.date));
     const cumulative=Object.fromEntries(MATERIALS.map(material=>[material,0]));
+    const materialCompletedDates=Object.fromEntries(MATERIALS.map(material=>[material,null]));
     let completedDate=null;
     for(const {material,entry} of chronological){
       cumulative[material]+=(Number(entry.qty)||0);
+      if(!materialCompletedDates[material]&&group.targets[material]>0&&cumulative[material]>=group.targets[material]){
+        materialCompletedDates[material]=entry.date;
+      }
       if(required.length&&required.every(component=>cumulative[component]>=group.targets[component])){
         completedDate=entry.date;
         break;
       }
     }
     group.totals=totals;
+    group.materialCompletedDates=materialCompletedDates;
     group.completedDate=completedDate;
     group.lastActivity=chronological.length?chronological[chronological.length-1].entry.date:null;
     return group;
@@ -813,7 +818,7 @@ function renderTakenHistory(items){
     const taken=group.totals[material];
     const balance=Math.max(0,target-taken);
     const events=group.events[material].slice().sort((left,right)=>new Date(left.date)-new Date(right.date));
-    return `<div class="taken-component-qty">${taken}/${target}</div><div class="taken-component-balance ${balance===0?'complete':''}">${balance===0?'Lengkap':`Balance ${balance}`}</div><div class="taken-component-events">${events.map(entry=>`<div class="taken-component-event">${fmtDate(entry.date)} · +${Number(entry.qty)||0} · ${esc(entry.pic||entry.by||'-')}</div>`).join('')}</div>`;
+    return `<div class="taken-component-qty">${taken}/${target}</div><div class="taken-component-balance ${balance===0?'complete':''}">${balance===0?`OK ${group.materialCompletedDates[material]?dayjs(group.materialCompletedDates[material]).format('M/D'):''}`:`Balance ${balance}`}</div><div class="taken-component-events">${events.map(entry=>`<div class="taken-component-event">${fmtDate(entry.date)} · +${Number(entry.qty)||0} · ${esc(entry.pic||entry.by||'-')}</div>`).join('')}</div>`;
   };
   return `<div class="pipeline-title" style="margin-top:24px">History Pengambilan (${groups.length} SPK)</div>
     ${groups.length?`<div class="history-table-wrap"><table class="history-table taken-history-table"><thead><tr><th>SPK</th><th>STYLE</th><th>CUSTOMER</th>${MATERIALS.map(material=>`<th>${esc(material)}</th>`).join('')}<th>TANGGAL OK TAKEN</th></tr></thead><tbody>${groups.map(group=>`<tr><td><strong>${esc(group.spk)}</strong></td><td>${esc(group.style||'-')}</td><td>${esc(group.customer||'-')}</td>${MATERIALS.map(material=>`<td>${renderComponent(group)(material)}</td>`).join('')}<td>${group.completedDate?`<span class="taken-complete-date">${fmtDate(group.completedDate)}</span>`:'Belum OK'}</td></tr>`).join('')}</tbody></table></div>`:'<div class="empty">Belum ada riwayat pengambilan.</div>'}`;
