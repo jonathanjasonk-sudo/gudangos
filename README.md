@@ -60,7 +60,7 @@ Railway akan memberi Anda URL publik (misalnya `namaservis.up.railway.app`). Buk
 - **Pencarian request** — STYLE, CUSTOMER, XFD, dan QTY dari master terisi otomatis. SPK yang tidak ditemukan dapat dibuat manual dan otomatis disimpan sebagai master. Penulisan SPK otomatis menjadi huruf besar.
 - **Request material** — satu SPK dapat memiliki beberapa request untuk material berbeda. Material yang sudah pernah diminta tidak dapat diminta ulang untuk SPK tersebut.
 - **Marketing Ready** — akun Marketing mencatat material yang siap, per material dan qty; tetap terlihat selama Taken belum lengkap.
-- **Taken** — akun Marketing mencatat material yang diambil; request selesai setelah semua 4 material mencapai QTY.
+- **Taken** — akun Marketing, Produksi, dan Master dapat mencatat material yang diambil; akun Produksi hanya dapat mencatat untuk gedungnya. Request selesai setelah semua 4 material mencapai QTY.
 - **History Taken** — tersedia di tab Taken, satu baris per pencatatan komponen dengan qty, tanggal ambil, dan PIC.
 - **Master** — akses penuh ke request, Marketing Ready, dan Taken.
 - Material yang dicatat: Shoe Box, Size Label, Karton Label, dan Marking.

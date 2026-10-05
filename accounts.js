@@ -8,7 +8,7 @@ module.exports = {
       canAddItem: true,
       canDeleteItem: false,
       canEditWhReady: false,
-      canEditPengambilan: false
+      canEditPengambilan: true
     }
   },
   MARKETING: {
