@@ -1333,6 +1333,7 @@ function attachEvents(){
       const result=await response.json();
       if(!response.ok) throw new Error(result.error||'Gagal mengimpor data SPK.');
       state.items=await api('/items');
+      await loadImportHistory();
       render();
       showToast(`${result.imported} SPK: ${result.newSpks} baru, ${result.updatedSpks} diperbarui.`);
     }catch(e){ showToast(e.message); }
