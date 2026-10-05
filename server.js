@@ -62,6 +62,7 @@ async function initDb() {
       updated_spks INTEGER NOT NULL
     )
   `);
+  await pool.query(`ALTER TABLE spk_import_history ADD COLUMN IF NOT EXISTS details JSONB NOT NULL DEFAULT '[]'::jsonb`);
   await pool.query(`
     INSERT INTO spk_master (spk, style, customer, xfd, qty)
     SELECT DISTINCT ON (spk) spk, style, customer, xfd, qty
@@ -347,6 +348,19 @@ app.get('/api/spk/import-history', requirePerm('importSpk'), async (req, res) =>
   }
 });
 
+app.get('/api/spk/import-history/:id/details', requirePerm('importSpk'), async (req, res) => {
+  const id=Number(req.params.id);
+  if(!Number.isSafeInteger(id)||id<=0) return res.status(400).json({error:'ID riwayat import tidak valid.'});
+  try {
+    const row=(await pool.query('SELECT details FROM spk_import_history WHERE id=$1',[id])).rows[0];
+    if(!row) return res.status(404).json({error:'Riwayat import tidak ditemukan.'});
+    res.json({details:row.details||[]});
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({error:'Gagal mengambil detail import.'});
+  }
+});
+
 app.get('/api/spk/template.xlsx', requirePerm('exportFile'), async (req, res) => {
   try {
     const workbook = await buildSpkTemplateWorkbook();
@@ -408,6 +422,7 @@ app.post('/api/spk/import', requirePerm('importSpk'), express.raw({
     await client.query('BEGIN');
     let newSpks = 0;
     let updatedSpks = 0;
+    const importDetails=[];
     for (const record of records.values()) {
       await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [record.spk]);
       const saved = await client.query(
@@ -418,15 +433,17 @@ app.post('/api/spk/import', requirePerm('importSpk'), express.raw({
          RETURNING (xmax = 0) AS inserted`,
         [record.spk, record.style, record.customer, record.xfd, record.qty]
       );
-      if (saved.rows[0].inserted) newSpks++;
+      const inserted=saved.rows[0].inserted;
+      if (inserted) newSpks++;
       else updatedSpks++;
+      importDetails.push({...record, status:inserted?'Baru':'Diperbarui'});
     }
     let fileName = req.headers['x-file-name'] || 'Import-SPK.xlsx';
     try { fileName = decodeURIComponent(fileName); } catch (e) { fileName = 'Import-SPK.xlsx'; }
     fileName = fileName.split(/[\\/]/).pop().replace(/[\r\n]/g, '').slice(0, 200) || 'Import-SPK.xlsx';
     await client.query(
-      'INSERT INTO spk_import_history (file_name, imported_by, total_spks, new_spks, updated_spks) VALUES ($1,$2,$3,$4,$5)',
-      [fileName, req.role, records.size, newSpks, updatedSpks]
+      'INSERT INTO spk_import_history (file_name, imported_by, total_spks, new_spks, updated_spks, details) VALUES ($1,$2,$3,$4,$5,$6::jsonb)',
+      [fileName, req.role, records.size, newSpks, updatedSpks, JSON.stringify(importDetails)]
     );
     await client.query('COMMIT');
     res.json({ imported: records.size, newSpks, updatedSpks });
