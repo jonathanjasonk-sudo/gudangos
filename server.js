@@ -233,7 +233,7 @@ app.post('/api/login', (req, res) => {
 async function getFullItems(req=null) {
   const productionScope=req?.role==='PRODUKSI';
   const fullAccess=['MARKETING','MASTER'].includes(req?.role);
-  const accessFilter=productionScope?'WHERE items.building=$1':fullAccess?'':'WHERE false';
+  const accessFilter=productionScope?"WHERE items.building=$1 OR items.created_by='MARKETING'":fullAccess?'':'WHERE false';
   const items = (await pool.query(`
     SELECT items.*, spk_master.style AS master_style, spk_master.customer AS master_customer,
       spk_master.xfd AS master_xfd, spk_master.qty AS master_qty
@@ -507,6 +507,18 @@ async function requireBuildingOwnership(req, res, next) {
   }
 }
 
+async function requireTakenAccess(req, res, next) {
+  if(req.role!=='PRODUKSI') return next();
+  try{
+    const item=await pool.query("SELECT 1 FROM items WHERE id=$1 AND (building=$2 OR created_by='MARKETING')",[req.params.id,req.building]);
+    if(!item.rowCount) return res.status(404).json({error:'Request tidak ditemukan atau tidak dapat diakses.'});
+    next();
+  }catch(e){
+    console.error(e);
+    res.status(500).json({error:'Gagal memeriksa akses request.'});
+  }
+}
+
 app.post('/api/items', requirePerm('addItem'), async (req, res) => {
   const client = await pool.connect();
   try {
@@ -566,7 +578,7 @@ app.post('/api/items/:id/wh-ready', requirePerm('whReady'), requireBuildingOwner
   res.json(await getFullItems(req));
 });
 
-app.post('/api/items/:id/pengambilan', requirePerm('pengambilan'), requireBuildingOwnership, async (req, res) => {
+app.post('/api/items/:id/pengambilan', requirePerm('pengambilan'), requireTakenAccess, async (req, res) => {
   const { qty, date, pic, material, notes } = req.body || {};
   if (!Number.isFinite(Number(qty)) || Number(qty) <= 0 || !date || !MATERIALS.includes(material)) {
     return res.status(400).json({ error: 'Qty, tanggal, dan material yang valid wajib diisi.' });
