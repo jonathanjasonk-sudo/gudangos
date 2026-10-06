@@ -886,10 +886,12 @@ function renderDashboard(){
     {key:'ready',title:'Marketing Ready',cls:'col-whparsial',items:items.filter(it=>hasMaterialProgress(it.whReady.history,itemMaterials(it))&&!materialsComplete(it.pengambilan.history,it.qty,itemMaterials(it)))},
     {key:'taken',title:'Taken',cls:'col-whok',items:items.filter(it=>hasMaterialProgress(it.pengambilan.history,itemMaterials(it))&&!materialsComplete(it.pengambilan.history,it.qty,itemMaterials(it)))}
   ];
-  const complete=matchingItems.filter(it=>takenCompletionDate(it)===todayStr()).length;
+  const today=todayStr();
+  const totalRequestsToday=matchingItems.filter(it=>it.createdAt&&dayjs(it.createdAt).format('YYYY-MM-DD')===today).length;
+  const complete=matchingItems.filter(it=>takenCompletionDate(it)===today).length;
   return `<div class="toolbar"><input type="text" id="dashSearch" placeholder="Cari SPK di dashboard..." value="${esc(query)}" autocomplete="off" />${renderComponentFilter()}${perm().canAddItem?'<button class="btn amber" id="dashboardAddRequest">+ Request Produksi</button>':''}</div>
     <div class="summary-cards">
-      <div class="scard"><div class="num">${matchingItems.length}</div><div class="lbl">Total Request</div></div>
+      <div class="scard"><div class="num">${totalRequestsToday}</div><div class="lbl">Total Request Hari Ini</div></div>
       <div class="scard"><div class="num">${stages[0].items.length}</div><div class="lbl">Request Produksi</div></div>
       <div class="scard"><div class="num">${stages[1].items.length}</div><div class="lbl">Marketing Ready</div></div>
       <div class="scard"><div class="num">${stages[2].items.length}</div><div class="lbl">Taken</div></div>
