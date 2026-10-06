@@ -29,12 +29,13 @@ module.exports = {
     label: 'Master',
     full: 'Akses penuh',
     passwordEnv: 'PASS_MASTER',
-    apiPermissions: ['planning', 'addItem', 'importSpk', 'exportFile', 'whReady', 'pengambilan', 'returanAdd', 'returanConfirm'],
+    apiPermissions: ['planning', 'addItem', 'importSpk', 'exportFile', 'whReady', 'pengambilan', 'deletePengambilan', 'returanAdd', 'returanConfirm'],
     uiPermissions: {
       canAddItem: true,
       canImportSpk: true,
       canExportFiles: true,
       canDeleteItem: true,
+      canDeleteTakenHistory: true,
       canEditWhReady: true,
       canEditPengambilan: true
     }

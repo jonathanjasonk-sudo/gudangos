@@ -259,7 +259,7 @@ async function getFullItems(req=null) {
     createdBy: it.created_by,
     planning: { done: it.planning_done, date: it.planning_date },
     whReady: { history: wh.filter(h => h.item_id === it.id).map(h => ({ qty: h.qty, date: h.date, by: h.by_role, pic: h.pic, material: h.material || 'IP', notes: h.notes })) },
-    pengambilan: { history: peng.filter(h => h.item_id === it.id).map(h => ({ qty: h.qty, date: h.date, by: h.by_role, pic: h.pic, material: h.material || 'IP', notes: h.notes })) },
+    pengambilan: { history: peng.filter(h => h.item_id === it.id).map(h => ({ id: h.id, qty: h.qty, date: h.date, by: h.by_role, pic: h.pic, material: h.material || 'IP', notes: h.notes })) },
     returan: ret.filter(r => r.item_id === it.id).map(r => ({
       id: r.id, qty: r.qty, reason: r.reason, date: r.date, by: r.by_role,
       type: r.type || 'gudang',
@@ -607,6 +607,24 @@ app.post('/api/items/:id/pengambilan', requirePerm('pengambilan'), requireTakenA
   if (Number(used) + Number(qty) > item.qty) return res.status(400).json({ error: `Qty melebihi sisa material (${item.qty - Number(used)}).` });
   await pool.query('INSERT INTO pengambilan_history (item_id, qty, date, by_role, pic, material, notes) VALUES ($1,$2,$3,$4,$5,$6,$7)', [req.params.id, Number(qty), date, req.role, pic || null, material, notes || null]);
   res.json(await getFullItems(req));
+});
+
+app.delete('/api/items/:id/pengambilan/:historyId', requirePerm('deletePengambilan'), async (req, res) => {
+  const historyId = Number(req.params.historyId);
+  if (!Number.isSafeInteger(historyId) || historyId <= 0) {
+    return res.status(400).json({ error: 'ID riwayat Taken tidak valid.' });
+  }
+  try {
+    const result = await pool.query(
+      'DELETE FROM pengambilan_history WHERE id=$1 AND item_id=$2 RETURNING id',
+      [historyId, req.params.id]
+    );
+    if (!result.rowCount) return res.status(404).json({ error: 'Riwayat Taken tidak ditemukan.' });
+    res.json(await getFullItems(req));
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Gagal menghapus riwayat Taken.' });
+  }
 });
 
 app.post('/api/items/:id/returan', requirePerm('returanAdd'), requireBuildingOwnership, async (req, res) => {

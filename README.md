@@ -48,7 +48,7 @@ QC: {
 	}
 }
 ```
-Setelah itu, tambahkan `PASS_QC` beserta password-nya di **Variables** service Railway, lalu deploy ulang. Jangan menulis password asli di `accounts.js` atau meng-commit-nya ke GitHub. `apiPermissions` menentukan akses endpoint (`planning`, `addItem`, `importSpk`, `exportFile`, `whReady`, `pengambilan`, `returanAdd`, `returanConfirm`); `uiPermissions` menentukan tombol yang tersedia di halaman.
+Setelah itu, tambahkan `PASS_QC` beserta password-nya di **Variables** service Railway, lalu deploy ulang. Jangan menulis password asli di `accounts.js` atau meng-commit-nya ke GitHub. `apiPermissions` menentukan akses endpoint (`planning`, `addItem`, `importSpk`, `exportFile`, `whReady`, `pengambilan`, `deletePengambilan`, `returanAdd`, `returanConfirm`); `uiPermissions` menentukan tombol yang tersedia di halaman.
 
 ### 5. Selesai
 Railway akan memberi Anda URL publik (misalnya `namaservis.up.railway.app`). Buka URL itu, dan aplikasi sudah bisa dipakai oleh siapa saja yang Anda beri linknya, dengan data tersimpan permanen di database.
@@ -60,8 +60,9 @@ Railway akan memberi Anda URL publik (misalnya `namaservis.up.railway.app`). Buk
 - **Pencarian request** — STYLE, CUSTOMER, XFD, dan QTY dari master terisi otomatis. SPK yang tidak ditemukan dapat dibuat manual dan otomatis disimpan sebagai master. Penulisan SPK otomatis menjadi huruf besar.
 - **Request material** — satu SPK dapat memiliki beberapa request untuk material berbeda. Material yang sudah pernah diminta tidak dapat diminta ulang untuk SPK tersebut.
 - **Marketing Ready** — akun Marketing mencatat material yang siap, per material dan qty; tetap terlihat selama Taken belum lengkap.
-- **Taken** — akun Marketing, Produksi, dan Master dapat mencatat material yang diambil. Produksi dapat mencatat untuk request Marketing atau Master dari gedung mana pun, tetapi request yang dibuat Produksi tetap dibatasi ke gedung pembuatnya. Request selesai setelah semua 4 material mencapai QTY.
-- **History Taken** — tersedia di tab Taken, satu baris per pencatatan komponen dengan qty, tanggal ambil, dan PIC.
+- **Taken** — akun Marketing, Produksi, dan Master dapat mencatat material yang diambil. Produksi dapat mencatat untuk request Marketing atau Master dari gedung mana pun, tetapi request yang dibuat Produksi tetap dibatasi ke gedung pembuatnya. Request selesai setelah semua material yang diminta mencapai QTY.
+- **History Taken** — tersedia di tab Taken, satu baris per pencatatan komponen dengan qty, tanggal ambil, dan PIC. Akun Master dapat menghapus pencatatan Taken satu per satu.
+- **Dashboard** — kartu “Material Taken lengkap hari ini” menghitung request yang penyelesaian Taken-nya bertanggal hari ini, sehingga hitungan berganti otomatis setiap hari.
 - **Master** — akses penuh ke request, Marketing Ready, dan Taken.
 - Material yang dicatat: Shoe Box, Size Label, Karton Label, dan Marking.
 - Akses impor dan unduh file hanya ditambahkan untuk akun Marketing dan Master. Marketing kini juga dapat membuat Request Produksi; request akun Produksi tetap dibatasi per gedung. Kontrol file dan Request Produksi di Dashboard tersedia pada Menu yang bisa dibuka/tutup. Export Excel menyediakan sheet `REQ PRODUKSI`, `MARKETING READY`, dan `TAKEN`, termasuk qty serta balance tiap material.

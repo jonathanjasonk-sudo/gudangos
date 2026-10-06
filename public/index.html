@@ -173,6 +173,9 @@
   .taken-component-balance.complete{color:var(--green-d);font-weight:600;}
   .taken-component-events{display:grid;gap:3px;}
   .taken-component-event{font-size:10.5px;color:var(--text2);white-space:nowrap;}
+  .taken-event-line{display:flex;align-items:center;gap:4px;white-space:nowrap;}
+  .history-delete-btn{background:none;border:0;color:var(--red);cursor:pointer;font-size:11px;padding:1px 3px;}
+  .history-delete-btn:hover{text-decoration:underline;}
   .taken-complete-date{color:var(--green-d);font-weight:700;white-space:nowrap;}
   .kprog{margin-top:5px;}
   .kprog-lbl{font-size:11px;color:var(--text2);display:flex;justify-content:space-between;margin-bottom:2px;}
@@ -669,7 +672,8 @@ function hasMaterialProgress(history, materials=MATERIALS){
 function takenCompletionDate(item){
   const materials=itemMaterials(item);
   const totals=Object.fromEntries(materials.map(material=>[material,0]));
-  for(const entry of item.pengambilan.history){
+  const history=item.pengambilan.history.slice().sort((left,right)=>new Date(left.date)-new Date(right.date));
+  for(const entry of history){
     if(materials.includes(entry.material)) totals[entry.material]+=Number(entry.qty);
     if(materials.every(material=>totals[material]>=Number(item.qty))) return entry.date;
   }
@@ -702,6 +706,7 @@ function perm(){
     canImportSpk: !!permissions.canImportSpk,
     canExportFiles: !!permissions.canExportFiles,
     canDeleteItem: !!permissions.canDeleteItem,
+    canDeleteTakenHistory: !!permissions.canDeleteTakenHistory,
     canEditWhReady: !!permissions.canEditWhReady,
     canEditPengambilan: !!permissions.canEditPengambilan
   };
@@ -790,7 +795,7 @@ function renderTakenHistory(items){
       if(MATERIALS.includes(material)) group.targets[material]+=Number(item.qty)||0;
     }
     for(const entry of item.pengambilan.history){
-      if(group.events[entry.material]) group.events[entry.material].push(entry);
+      if(group.events[entry.material]) group.events[entry.material].push({...entry,itemId:item.id});
     }
     if(!group.style&&item.style) group.style=item.style;
     if(!group.customer&&item.customer) group.customer=item.customer;
@@ -826,7 +831,7 @@ function renderTakenHistory(items){
     const taken=group.totals[material];
     const balance=Math.max(0,target-taken);
     const events=group.events[material].slice().sort((left,right)=>new Date(left.date)-new Date(right.date));
-    return `<div class="taken-component-qty">${taken}/${target}</div><div class="taken-component-balance ${balance===0?'complete':''}">${balance===0?`OK ${group.materialCompletedDates[material]?dayjs(group.materialCompletedDates[material]).format('M/D'):''}`:`Balance ${balance}`}</div><div class="taken-component-events">${events.map(entry=>`<div class="taken-component-event">${fmtDate(entry.date)} · +${Number(entry.qty)||0} · ${esc(entry.pic||entry.by||'-')}</div>`).join('')}</div>`;
+    return `<div class="taken-component-qty">${taken}/${target}</div><div class="taken-component-balance ${balance===0?'complete':''}">${balance===0?`OK ${group.materialCompletedDates[material]?dayjs(group.materialCompletedDates[material]).format('M/D'):''}`:`Balance ${balance}`}</div><div class="taken-component-events">${events.map(entry=>`<div class="taken-event-line"><span class="taken-component-event">${fmtDate(entry.date)} · +${Number(entry.qty)||0} · ${esc(entry.pic||entry.by||'-')}</span>${perm().canDeleteTakenHistory?`<button class="history-delete-btn" data-del-peng-history="${entry.id}" data-item-id="${entry.itemId}" title="Hapus riwayat Taken" aria-label="Hapus riwayat Taken ${esc(group.spk)}">Hapus</button>`:''}</div>`).join('')}</div>`;
   };
   return `<div class="pipeline-title" style="margin-top:24px">History Pengambilan (${groups.length} SPK)</div>
     ${groups.length?`<div class="history-table-wrap"><table class="history-table taken-history-table"><thead><tr><th>SPK</th><th>STYLE</th><th>CUSTOMER</th>${MATERIALS.map(material=>`<th>${esc(material)}</th>`).join('')}<th>TANGGAL OK TAKEN</th></tr></thead><tbody>${groups.map(group=>`<tr><td><strong>${esc(group.spk)}</strong></td><td>${esc(group.style||'-')}</td><td>${esc(group.customer||'-')}</td>${MATERIALS.map(material=>`<td>${renderComponent(group)(material)}</td>`).join('')}<td>${group.completedDate?`<span class="taken-complete-date">${fmtDate(group.completedDate)}</span>`:'Belum OK'}</td></tr>`).join('')}</tbody></table></div>`:'<div class="empty">Belum ada riwayat pengambilan.</div>'}`;
@@ -881,14 +886,14 @@ function renderDashboard(){
     {key:'ready',title:'Marketing Ready',cls:'col-whparsial',items:items.filter(it=>hasMaterialProgress(it.whReady.history,itemMaterials(it))&&!materialsComplete(it.pengambilan.history,it.qty,itemMaterials(it)))},
     {key:'taken',title:'Taken',cls:'col-whok',items:items.filter(it=>hasMaterialProgress(it.pengambilan.history,itemMaterials(it))&&!materialsComplete(it.pengambilan.history,it.qty,itemMaterials(it)))}
   ];
-  const complete=matchingItems.filter(it=>materialsComplete(it.pengambilan.history,it.qty,itemMaterials(it))).length;
+  const complete=matchingItems.filter(it=>takenCompletionDate(it)===todayStr()).length;
   return `<div class="toolbar"><input type="text" id="dashSearch" placeholder="Cari SPK di dashboard..." value="${esc(query)}" autocomplete="off" />${renderComponentFilter()}${perm().canAddItem?'<button class="btn amber" id="dashboardAddRequest">+ Request Produksi</button>':''}</div>
     <div class="summary-cards">
       <div class="scard"><div class="num">${matchingItems.length}</div><div class="lbl">Total Request</div></div>
       <div class="scard"><div class="num">${stages[0].items.length}</div><div class="lbl">Request Produksi</div></div>
       <div class="scard"><div class="num">${stages[1].items.length}</div><div class="lbl">Marketing Ready</div></div>
       <div class="scard"><div class="num">${stages[2].items.length}</div><div class="lbl">Taken</div></div>
-      <div class="scard good"><div class="num">${complete}</div><div class="lbl">Material Taken lengkap</div></div>
+      <div class="scard good"><div class="num">${complete}</div><div class="lbl">Material Taken lengkap hari ini</div></div>
     </div>
     <div class="pipeline-title">Alur Request${query?` — "${esc(query)}"`:''}</div>
     <div class="kanban">
@@ -1057,8 +1062,8 @@ function renderItemDetail(it,p,ws,ps){
     const pct=Math.min(100,total>0?qty/total*100:0);
     return `<div style="font-size:11px;color:var(--text2);text-align:right;margin-bottom:2px;">${qty} / ${total}${qty>=total?' ✓':` · kurang ${total-qty}`}</div><div class="kprog-track"><div class="kprog-fill ${qty>=total?'gn':'am'}" style="width:${pct}%"></div></div>`;
   }
-  function histRow(h){
-    return `<div class="hist-row"><span><span class="hist-mat ${h.material==='RB_TPU'?'rb':'ip'}">${h.material==='RB_TPU'?'RB/TPU':'IP'}</span>${fmtDate(h.date)} · ${esc(h.pic||h.by)}${h.notes?` <span class="hist-notes">"${esc(h.notes)}"</span>`:''}</span><span>+${h.qty}</span></div>`;
+  function histRow(h,stage){
+    return `<div class="hist-row"><span><span class="hist-mat ${h.material==='RB_TPU'?'rb':'ip'}">${h.material==='RB_TPU'?'RB/TPU':'IP'}</span>${fmtDate(h.date)} · ${esc(h.pic||h.by)}${h.notes?` <span class="hist-notes">"${esc(h.notes)}"</span>`:''}</span><span>+${h.qty}${stage==='pengambilan'&&p.canDeleteTakenHistory?` <button class="history-delete-btn" data-del-peng-history="${h.id}" data-item-id="${it.id}" title="Hapus riwayat Taken" aria-label="Hapus riwayat Taken">Hapus</button>`:''}</span></div>`;
   }
   return `
   <div class="stage-grid">
@@ -1071,7 +1076,7 @@ function renderItemDetail(it,p,ws,ps){
       <h4>WH Siap (Persiapan Gudang)</h4>
       <div class="mat-prog-row"><span class="mat-badge ip">IP</span><div style="flex:1;min-width:0;">${mpBar(whIPqty,it.qty)}</div></div>
       <div class="mat-prog-row" style="margin-top:4px;"><span class="mat-badge rb">RB/TPU</span><div style="flex:1;min-width:0;">${mpBar(whRBqty,it.qty)}</div></div>
-      <div style="margin-top:6px;">${it.whReady.history.length>0 ? it.whReady.history.map(h=>histRow(h)).join('') : '<div style="font-size:12px;color:var(--text2);">Belum ada data</div>'}</div>
+      <div style="margin-top:6px;">${it.whReady.history.length>0 ? it.whReady.history.map(h=>histRow(h,'wh-ready')).join('') : '<div style="font-size:12px;color:var(--text2);">Belum ada data</div>'}</div>
       ${p.canEditWhReady ? `
       <div class="mat-form">
         <div class="mat-row">
@@ -1089,7 +1094,7 @@ function renderItemDetail(it,p,ws,ps){
       <h4>Pengambilan (Ambil Bahan)</h4>
       <div class="mat-prog-row"><span class="mat-badge ip">IP</span><div style="flex:1;min-width:0;">${mpBar(pengIPqty,it.qty)}</div></div>
       <div class="mat-prog-row" style="margin-top:4px;"><span class="mat-badge rb">RB/TPU</span><div style="flex:1;min-width:0;">${mpBar(pengRBqty,it.qty)}</div></div>
-      <div style="margin-top:6px;">${it.pengambilan.history.length>0 ? it.pengambilan.history.map(h=>histRow(h)).join('') : '<div style="font-size:12px;color:var(--text2);">Belum ada data</div>'}</div>
+      <div style="margin-top:6px;">${it.pengambilan.history.length>0 ? it.pengambilan.history.map(h=>histRow(h,'pengambilan')).join('') : '<div style="font-size:12px;color:var(--text2);">Belum ada data</div>'}</div>
       ${p.canEditPengambilan ? `
       <div class="mat-form">
         <div class="mat-row">
@@ -1585,6 +1590,24 @@ function attachEvents(){
         render();
         showToast('SPK berhasil dihapus.');
       }catch(err){ showToast(err.message); }
+    };
+  });
+
+  app.querySelectorAll('[data-del-peng-history]').forEach(btn=>{
+    btn.onclick = async event=>{
+      event.stopPropagation();
+      const itemId=btn.dataset.itemId;
+      const historyId=btn.dataset.delPengHistory;
+      if(!confirm('Hapus pencatatan Taken ini? Qty pada riwayat akan dikurangi.')) return;
+      btn.disabled=true;
+      try{
+        state.items=await api(`/items/${itemId}/pengambilan/${historyId}`,{method:'DELETE'});
+        render();
+        showToast('Riwayat Taken berhasil dihapus.');
+      }catch(error){
+        showToast(error.message);
+        btn.disabled=false;
+      }
     };
   });
 
