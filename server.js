@@ -233,7 +233,7 @@ app.post('/api/login', (req, res) => {
 // ---------- Helpers ----------
 async function getFullItems(req=null) {
   const productionScope=req?.role==='PRODUKSI';
-  const fullAccess=['MARKETING','MASTER'].includes(req?.role);
+  const fullAccess=!req?.role||['MARKETING','MASTER'].includes(req.role);
   const accessFilter=productionScope?"WHERE items.building=$1 OR items.created_by IN ('MARKETING','MASTER')":fullAccess?'':'WHERE false';
   const items = (await pool.query(`
     SELECT items.*, spk_master.style AS master_style, spk_master.customer AS master_customer,
