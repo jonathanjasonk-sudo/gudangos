@@ -674,8 +674,9 @@ function takenCompletionDate(item){
   const totals=Object.fromEntries(materials.map(material=>[material,0]));
   const history=item.pengambilan.history.slice().sort((left,right)=>new Date(left.date)-new Date(right.date));
   for(const entry of history){
-    if(materials.includes(entry.material)) totals[entry.material]+=Number(entry.qty);
-    if(materials.every(material=>totals[material]>=Number(item.qty))) return entry.date;
+    const material = entry.material || 'IP';
+    if(materials.includes(material)) totals[material]+=Number(entry.qty)||0;
+    if(materials.every(material=>totals[material]>=Number(item.qty))) return dayjs(entry.date).format('YYYY-MM-DD');
   }
   return null;
 }
@@ -888,7 +889,10 @@ function renderDashboard(){
   ];
   const today=todayStr();
   const totalRequestsToday=matchingItems.filter(it=>it.createdAt&&dayjs(it.createdAt).format('YYYY-MM-DD')===today).length;
-  const complete=matchingItems.filter(it=>takenCompletionDate(it)===today).length;
+  const complete=matchingItems.filter(it=>{
+    const completedDate=takenCompletionDate(it);
+    return completedDate && dayjs(completedDate).format('YYYY-MM-DD')===today;
+  }).length;
   return `<div class="toolbar"><input type="text" id="dashSearch" placeholder="Cari SPK di dashboard..." value="${esc(query)}" autocomplete="off" />${renderComponentFilter()}${perm().canAddItem?'<button class="btn amber" id="dashboardAddRequest">+ Request Produksi</button>':''}</div>
     <div class="summary-cards">
       <div class="scard"><div class="num">${totalRequestsToday}</div><div class="lbl">Total Request Hari Ini</div></div>
