@@ -3,7 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Marketing System</title>
+<title>Diamond · Marketing System</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 100'%3E%3Cpath d='M8 29 27 8q4-4 9-4h48q5 0 9 5l19 20q4 4-1 8L64 59q-4 2-8 0L9 37q-5-4-1-8Z' fill='%23168fd2' stroke='%2398e8ff' stroke-width='3'/%3E%3Cpath d='m9 42 47 22q4 2 8 0l47-22q5-2 1 4L64 94q-4 4-8 0L8 46q-4-5 1-4Z' fill='%2317105f' stroke='%2398e8ff' stroke-width='3'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
@@ -462,6 +463,59 @@
   .login-card h1{font-family:'Manrope',sans-serif;color:var(--amber);font-size:26px;}
   .login-card input{border-radius:7px;}
   .login-card button.go{font-family:'Manrope',sans-serif;background:var(--amber);border-radius:7px;}
+  .system-logo{display:block;width:100%;height:100%;}
+  .brand .badge{flex:0 0 48px;width:48px;height:48px;padding:4px;background:rgba(255,255,255,.08);border:1px solid rgba(164,226,255,.22);border-radius:13px;box-shadow:inset 0 1px rgba(255,255,255,.12),0 6px 18px rgba(3,24,54,.2);}
+  .login-brand{display:flex;align-items:center;gap:14px;margin-bottom:22px;}
+  .login-brand .system-logo{width:56px;height:48px;flex:0 0 56px;filter:drop-shadow(0 5px 10px rgba(0,0,0,.22));}
+  .login-brand h1{margin:0 0 3px;}
+  .login-brand .login-sub{margin:0;}
+  .summary-cards{gap:12px;margin-bottom:26px;}
+  .scard{min-height:104px;padding:17px 18px 16px 20px;border:1px solid rgba(24,51,47,.07);border-radius:13px;background:linear-gradient(145deg,#fff 0%,#fbfdfb 100%);box-shadow:0 3px 12px rgba(24,51,47,.045);}
+  .scard::before{width:4px;border-radius:0 4px 4px 0;}
+  .scard::after{position:absolute;right:-19px;top:-24px;width:82px;height:82px;border-radius:50%;background:var(--metric-glow,rgba(57,142,131,.07));content:'';}
+  .scard .num{position:relative;z-index:1;font-size:34px;line-height:1.05;}
+  .scard .lbl{position:relative;z-index:1;margin-top:7px;font-size:11px;font-weight:600;}
+  .scard[data-tone="today"]{--metric-glow:rgba(57,142,131,.09);}
+  .scard[data-tone="request"]{--metric-glow:rgba(100,116,139,.1);}
+  .scard[data-tone="ready"]{--metric-glow:rgba(153,201,74,.14);}
+  .scard[data-tone="taken"]{--metric-glow:rgba(57,142,131,.1);}
+  .scard[data-tone="complete"]{--metric-glow:rgba(37,139,102,.12);}
+  .toolbar{gap:9px;margin-bottom:17px;}
+  .toolbar input[type=text]{min-height:40px;min-width:min(280px,100%);border-radius:9px;}
+  .component-filter summary{min-height:40px;border-radius:9px;}
+  .kanban{gap:15px;}
+  .kcol{min-width:0;padding:13px;border:1px solid rgba(24,51,47,.055);border-top:3px solid #8A9B94;border-radius:13px;background:rgba(232,238,233,.8);}
+  .kcol-head{padding:1px 1px 10px;border-bottom:1px solid rgba(24,51,47,.08);}
+  .kcol-title{font-size:11px;}
+  .kcol-badge{min-width:27px;text-align:center;border-radius:8px;padding:4px 8px;}
+  .dashboard-stage-link{margin:0 1px 8px;color:#398E83;}
+  .kcard{padding:13px;border-radius:11px;background:#fff;box-shadow:0 2px 7px rgba(24,51,47,.05);}
+  .kcard:hover{border-color:#94C7B5;box-shadow:0 8px 18px rgba(24,51,47,.1);}
+  .kcard-spk{font-size:15px;line-height:1.35;}
+  .kcard-customer{max-width:52%;background:#F1F5F2;font-size:9px;}
+  .dashboard-mat-heading{font-size:9px;}
+  .dashboard-mat-row{margin-top:7px;}
+  .dashboard-mat-name{font-size:10px;}
+  .dashboard-mat-cell{font-size:10px;}
+  .dashboard-mat-track{height:5px;margin-top:3px;}
+  .dashboard-request-list span{padding:4px 7px;border-radius:6px;background:#EDF5E5;}
+  .kcol-empty{padding:22px 8px;border:1px dashed rgba(24,51,47,.13);border-radius:9px;font-size:11px;}
+  .dashboard-nav{display:flex;align-items:center;gap:14px;margin-bottom:22px;}
+  .dashboard-nav .tabs{min-width:0;flex:0 1 auto;max-width:100%;overflow-x:auto;scrollbar-width:thin;margin:0;}
+  .dashboard-nav .dashboard-date{flex:0 0 auto;margin-left:auto;color:var(--text2);font-size:12px;font-weight:700;white-space:nowrap;}
+  .tab{flex:0 0 auto;}
+  @media(max-width:760px){
+    .dashboard-nav{gap:9px;}
+    .dashboard-nav .dashboard-date{font-size:10px;}
+    .brand{align-items:center;}
+    .brand .badge{flex-basis:42px;width:42px;height:42px;padding:4px;}
+    .summary-cards{gap:9px;}
+    .scard{min-height:94px;padding:15px 14px 14px 17px;}
+    .kanban{gap:11px;}
+  }
+  @media(prefers-reduced-motion:reduce){
+    *,*::before,*::after{scroll-behavior:auto!important;transition-duration:.01ms!important;animation-duration:.01ms!important;animation-iteration-count:1!important;}
+  }
   @media(max-width:760px){
     .app{padding:14px 14px 28px;}
     .topbar{padding:14px;border-radius:9px;align-items:flex-start;gap:12px;}
@@ -719,6 +773,13 @@ function render(){
   attachEvents();
 }
 
+function systemLogo(){
+  return `<svg class="system-logo" viewBox="0 0 120 100" role="img" aria-label="Diamond">
+    <path d="M8 29 27 8q4-4 9-4h48q5 0 9 5l19 20q4 4-1 8L64 59q-4 2-8 0L9 37q-5-4-1-8Z" fill="#168FD2" stroke="#98E8FF" stroke-width="3"/>
+    <path d="m9 42 47 22q4 2 8 0l47-22q5-2 1 4L64 94q-4 4-8 0L8 46q-4-5 1-4Z" fill="#17105F" stroke="#98E8FF" stroke-width="3"/>
+  </svg>`;
+}
+
 function renderLogin(){
   const sel = state.loginRoleSel;
   const buildings=sel==='PRODUKSI'?(ROLE_INFO.PRODUKSI?.buildings||[]):[];
@@ -727,8 +788,7 @@ function renderLogin(){
   return `
   <div class="login-wrap">
     <div class="login-card">
-      <h1>Marketing System</h1>
-      <div class="login-sub">Pilih akun untuk masuk</div>
+      <div class="login-brand">${systemLogo()}<div><h1>Marketing System</h1><div class="login-sub">Pilih akun untuk masuk</div></div></div>
       <div class="role-grid">
         ${Object.keys(ROLE_INFO).map(k=>`
           <div class="role-btn ${sel===k?'active':''}" data-role="${k}">${ROLE_INFO[k].label}<small>${ROLE_INFO[k].full}</small></div>
@@ -751,7 +811,7 @@ function renderMain(){
   <div class="topbar">
     ${p.canImportSpk||p.canExportFiles?`<details class="dashboard-actions" id="fileActionsMenu"><summary aria-label="Buka menu impor dan ekspor" title="Impor dan ekspor"><span class="menu-icon"><span></span><span></span><span></span></span></summary><div class="dashboard-actions-menu">${p.canImportSpk?'<button class="btn ghost" id="importSpkButton">↑ Import Master SPK</button><input class="spk-import-input" type="file" id="spkImportInput" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">':''}${p.canExportFiles?'<button class="btn ghost" id="spkTemplateButton">↓ Template SPK</button><button class="btn ghost" id="exportExcel" title="Unduh tiga sheet Excel">↓ Export Excel</button>':''}</div></details>`:''}
     <div class="brand">
-      <div class="badge">M</div>
+      <div class="badge">${systemLogo()}</div>
       <div><h1>Marketing System</h1><div class="sub">Request Produksi · Marketing Ready · Taken</div></div>
     </div>
     <div class="who">
@@ -759,12 +819,15 @@ function renderMain(){
       <button id="logoutBtn">Keluar</button>
     </div>
   </div>
+  <div class="dashboard-nav">
   <div class="tabs">
     <div class="tab ${state.tab==='dashboard'?'active':''}" data-tab="dashboard">Dashboard</div>
     <div class="tab ${state.tab==='request'?'active':''}" data-tab="request">Request Produksi <b>${state.items.filter(it=>!hasMaterialProgress(it.whReady.history,itemMaterials(it))&&!hasMaterialProgress(it.pengambilan.history,itemMaterials(it))).length}</b></div>
     <div class="tab ${state.tab==='ready'?'active':''}" data-tab="ready">Marketing Ready <b>${state.items.filter(it=>hasMaterialProgress(it.whReady.history,itemMaterials(it))&&!materialsComplete(it.pengambilan.history,it.qty,itemMaterials(it))).length}</b></div>
     <div class="tab ${state.tab==='taken'?'active':''}" data-tab="taken">Taken <b>${new Set(state.items.filter(it=>it.pengambilan.history.length>0).map(it=>it.spk)).size}</b></div>
     ${p.canImportSpk?`<div class="tab ${state.tab==='import-history'?'active':''}" data-tab="import-history">Import History</div>`:''}
+  </div>
+  <div class="dashboard-date">${new Intl.DateTimeFormat('id-ID',{weekday:'long',day:'2-digit',month:'short',year:'numeric'}).format(new Date())}</div>
   </div>
   ${state.loading ? '<div class="empty">Memuat data...</div>' : (state.tab==='dashboard' ? renderDashboard(p) : state.tab==='import-history' ? renderImportHistory() : renderStage(state.tab,p))}
   `;
@@ -895,11 +958,11 @@ function renderDashboard(){
   }).length;
   return `<div class="toolbar"><input type="text" id="dashSearch" placeholder="Cari SPK di dashboard..." value="${esc(query)}" autocomplete="off" />${renderComponentFilter()}${perm().canAddItem?'<button class="btn amber" id="dashboardAddRequest">+ Request Produksi</button>':''}</div>
     <div class="summary-cards">
-      <div class="scard"><div class="num">${totalRequestsToday}</div><div class="lbl">Total Request Hari Ini</div></div>
-      <div class="scard"><div class="num">${stages[0].items.length}</div><div class="lbl">Request Produksi</div></div>
-      <div class="scard"><div class="num">${stages[1].items.length}</div><div class="lbl">Marketing Ready</div></div>
-      <div class="scard"><div class="num">${stages[2].items.length}</div><div class="lbl">Taken</div></div>
-      <div class="scard good"><div class="num">${complete}</div><div class="lbl">Material Taken lengkap hari ini</div></div>
+      <div class="scard" data-tone="today"><div class="num">${totalRequestsToday}</div><div class="lbl">Total Request Hari Ini</div></div>
+      <div class="scard" data-tone="request"><div class="num">${stages[0].items.length}</div><div class="lbl">Request Produksi</div></div>
+      <div class="scard" data-tone="ready"><div class="num">${stages[1].items.length}</div><div class="lbl">Marketing Ready</div></div>
+      <div class="scard" data-tone="taken"><div class="num">${stages[2].items.length}</div><div class="lbl">Taken</div></div>
+      <div class="scard good" data-tone="complete"><div class="num">${complete}</div><div class="lbl">Material Taken lengkap hari ini</div></div>
     </div>
     <div class="pipeline-title">Alur Request${query?` — "${esc(query)}"`:''}</div>
     <div class="kanban">
