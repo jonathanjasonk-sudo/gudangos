@@ -163,6 +163,8 @@
   .dashboard-request-heading{font-size:9px;color:var(--text2);font-weight:700;text-transform:uppercase;margin-bottom:6px;}
   .dashboard-request-list{display:flex;flex-wrap:wrap;gap:5px;}
   .dashboard-request-list span{background:#EAF5D5;color:#405A1C;border-radius:4px;padding:3px 6px;font-size:10px;font-weight:600;}
+  .dashboard-request-meta{margin-top:7px;color:var(--text2);font-size:10px;line-height:1.5;}
+  .dashboard-sort{min-height:40px;padding:0 10px;border:1px solid var(--line);border-radius:9px;background:#fff;color:var(--text);font-size:12px;}
   .history-table-wrap{overflow-x:auto;background:#fff;border:1px solid var(--line);border-radius:10px;}
   .history-table{width:100%;border-collapse:collapse;font-size:12px;}
   .history-table th,.history-table td{text-align:left;padding:9px 11px;border-bottom:1px solid var(--line);vertical-align:top;}
@@ -220,6 +222,19 @@
   .dashboard-actions-menu .spk-import-input{display:none;}
   .request-batch-rows{display:grid;gap:12px;}
   .request-batch-row{border:1px solid var(--line);border-radius:8px;padding:12px;display:grid;gap:9px;}
+  .request-batch-row.dragging,.priority-confirm-row.dragging{opacity:.45;}
+  .request-drag-handle{flex:0 0 auto;padding:5px 8px;border:1px solid var(--line);border-radius:6px;background:#F3F6F2;color:var(--text2);cursor:grab;font-size:14px;touch-action:none;}
+  .request-drag-handle:active{cursor:grabbing;}
+  .request-building-field{max-width:320px;}
+  .request-building-field select{width:100%;min-height:40px;padding:8px 10px;border:1px solid var(--line);border-radius:7px;background:#fff;color:var(--text);font-size:13px;}
+  .priority-confirm-backdrop{position:fixed;inset:0;z-index:70;display:grid;place-items:center;padding:18px;background:rgba(12,30,26,.58);}
+  .priority-confirm-dialog{width:min(620px,100%);max-height:88vh;display:flex;flex-direction:column;gap:12px;padding:20px;background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow-lg);}
+  .priority-confirm-dialog h3{margin:0;color:var(--navy);font-size:18px;}
+  .priority-confirm-list{display:grid;gap:7px;overflow:auto;padding:2px;}
+  .priority-confirm-row{display:flex;align-items:center;gap:10px;padding:10px;border:1px solid var(--line);border-radius:8px;background:#fff;}
+  .priority-confirm-number{min-width:28px;color:var(--amber-d);font-weight:800;}
+  .priority-confirm-label{min-width:0;flex:1;overflow-wrap:anywhere;font-weight:700;}
+  .priority-confirm-dialog .spk-form-actions{justify-content:flex-end;}
   .request-batch-row-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
   .request-spk-field{position:relative;flex:1;min-width:180px;}
   .request-spk-field input{width:100%;min-width:0;}
@@ -643,6 +658,7 @@ let state = {
   expanded: null,
   search: '',
   dashSearch: '',
+  dashSort: 'normal',
   componentFilters: [],
   componentFilterOpen: false,
   loginRoleSel: null,
@@ -651,6 +667,9 @@ let state = {
   addOpen: false,
   requestRows: [],
   requestRowSequence: 1,
+  requestBuilding: '',
+  requestConfirming: false,
+  draggingRequestRow: null,
   importHistory: [],
   importHistoryLoading: false,
   importDetail: null,
@@ -945,10 +964,23 @@ function renderDashboard(){
   const query=(state.dashSearch||'').toLowerCase().trim();
   const matchingItems=state.items.filter(matchesComponentFilter);
   const items=matchingItems.filter(it=>!query||it.spk.toLowerCase().includes(query));
+  const sortDashboardItems=stageItems=>{
+    if(state.dashSort==='priority'){
+      return [...stageItems].sort((a,b)=>{
+        const priorityA=Number.isFinite(Number(a.priority))&&a.priority!==null?Number(a.priority):Infinity;
+        const priorityB=Number.isFinite(Number(b.priority))&&b.priority!==null?Number(b.priority):Infinity;
+        return priorityA-priorityB||new Date(a.createdAt)-new Date(b.createdAt);
+      });
+    }
+    if(state.dashSort==='request-time'){
+      return [...stageItems].sort((a,b)=>new Date(a.createdAt)-new Date(b.createdAt));
+    }
+    return stageItems;
+  };
   const stages=[
-    {key:'request',title:'Request Produksi',cls:'col-antrian',items:items.filter(it=>!hasMaterialProgress(it.whReady.history,itemMaterials(it))&&!hasMaterialProgress(it.pengambilan.history,itemMaterials(it)))},
-    {key:'ready',title:'Marketing Ready',cls:'col-whparsial',items:items.filter(it=>hasMaterialProgress(it.whReady.history,itemMaterials(it))&&!materialsComplete(it.pengambilan.history,it.qty,itemMaterials(it)))},
-    {key:'taken',title:'Taken',cls:'col-whok',items:items.filter(it=>hasMaterialProgress(it.pengambilan.history,itemMaterials(it))&&!materialsComplete(it.pengambilan.history,it.qty,itemMaterials(it)))}
+    {key:'request',title:'Request Produksi',cls:'col-antrian',items:sortDashboardItems(items.filter(it=>!hasMaterialProgress(it.whReady.history,itemMaterials(it))&&!hasMaterialProgress(it.pengambilan.history,itemMaterials(it))))},
+    {key:'ready',title:'Marketing Ready',cls:'col-whparsial',items:sortDashboardItems(items.filter(it=>hasMaterialProgress(it.whReady.history,itemMaterials(it))&&!materialsComplete(it.pengambilan.history,it.qty,itemMaterials(it))))},
+    {key:'taken',title:'Taken',cls:'col-whok',items:sortDashboardItems(items.filter(it=>hasMaterialProgress(it.pengambilan.history,itemMaterials(it))&&!materialsComplete(it.pengambilan.history,it.qty,itemMaterials(it))))}
   ];
   const today=todayStr();
   const totalRequestsToday=matchingItems.filter(it=>it.createdAt&&dayjs(it.createdAt).format('YYYY-MM-DD')===today).length;
@@ -956,7 +988,7 @@ function renderDashboard(){
     const completedDate=takenCompletionDate(it);
     return completedDate && dayjs(completedDate).format('YYYY-MM-DD')===today;
   }).length;
-  return `<div class="toolbar"><input type="text" id="dashSearch" placeholder="Cari SPK di dashboard..." value="${esc(query)}" autocomplete="off" />${renderComponentFilter()}${perm().canAddItem?'<button class="btn amber" id="dashboardAddRequest">+ Request Produksi</button>':''}</div>
+  return `<div class="toolbar"><input type="text" id="dashSearch" placeholder="Cari SPK di dashboard..." value="${esc(query)}" autocomplete="off" /><select class="dashboard-sort" id="dashboardSort" aria-label="Urutkan dashboard"><option value="normal" ${state.dashSort==='normal'?'selected':''}>Urutan normal</option><option value="priority" ${state.dashSort==='priority'?'selected':''}>Prioritas</option><option value="request-time" ${state.dashSort==='request-time'?'selected':''}>Waktu request (terlama)</option></select>${renderComponentFilter()}${perm().canAddItem?'<button class="btn amber" id="dashboardAddRequest">+ Request Produksi</button>':''}</div>
     <div class="summary-cards">
       <div class="scard" data-tone="today"><div class="num">${totalRequestsToday}</div><div class="lbl">Total Request Hari Ini</div></div>
       <div class="scard" data-tone="request"><div class="num">${stages[0].items.length}</div><div class="lbl">Request Produksi</div></div>
@@ -972,6 +1004,7 @@ function renderDashboard(){
         ${stage.items.length?stage.items.map(it=>`<div class="kcard" data-goto="${it.id}" data-stage="${stage.key}">
           <div class="kcard-head"><div class="kcard-spk">${esc(it.spk)}</div><span class="kcard-customer" title="Customer: ${esc(it.customer||'Customer belum diisi')}">${esc(it.customer||'Customer belum diisi')}</span></div>
           <div class="kcard-xfd">${it.style?`STYLE ${esc(it.style)} · `:''}XFD ${fmtDate(it.xfd)}</div><div class="kcard-qty">QTY ${it.qty}</div>
+          <div class="dashboard-request-meta">Prioritas ${it.priority?`#${it.priority}`:'belum diatur'} · Gedung ${esc(it.building||'-')} · Request ${fmtDate(it.createdAt)}</div>
           ${stage.key==='request'?renderDashboardMaterialRequest(it):renderDashboardMaterialProgress(it)}
         </div>`).join(''):'<div class="kcol-empty">Belum ada request</div>'}
       </div>`).join('')}
@@ -1021,18 +1054,44 @@ function renderData(p){
   `;
 }
 
+function getRequestBuildings(){
+  const buildings=state.role==='PRODUKSI'?[state.building]:ROLE_INFO[state.role]?.buildings||[];
+  return buildings.filter(Boolean);
+}
+
 function renderRequestForm(){
   if(!state.requestRows.length) state.requestRows=[createRequestRow()];
+  if(state.requestConfirming) return renderPriorityConfirmation();
+  const buildings=getRequestBuildings();
   return `<div class="spk-request-form" id="requestForm">
+    <div class="request-building-field"><label for="requestBuilding">Gedung tujuan</label><select id="requestBuilding" ${state.role==='PRODUKSI'?'disabled':''}><option value="">Pilih gedung</option>${buildings.map(building=>`<option value="${esc(building)}" ${state.requestBuilding===building?'selected':''}>Gedung ${esc(building)}</option>`).join('')}</select></div>
     <div class="bulk-hint">Masukkan beberapa SPK, lalu cari semuanya sekaligus. SPK yang tidak ditemukan dapat diperbaiki atau diinput manual.</div>
+    <div class="bulk-hint">Atur prioritas dengan menarik baris dari atas ke bawah. Posisi paling atas menjadi prioritas tertinggi.</div>
     <div class="request-batch-rows">${state.requestRows.map(renderRequestRow).join('')}</div>
     <div class="spk-form-actions">
       <button class="btn ghost" id="addRequestRow">+ Tambah SPK</button>
       <button class="btn ghost" id="lookupRequestRows">Cari Semua SPK</button>
-      <button class="btn amber" id="saveBulkRequests">Simpan Semua Request</button>
+      <button class="btn amber" id="reviewRequestPriority">Lanjut: Konfirmasi Prioritas</button>
       <button class="btn ghost" id="cancelSpkRequest">Batal</button>
     </div>
   </div>`;
+}
+
+function renderPriorityConfirmation(){
+  const rows=state.requestRows.filter(row=>row.spk);
+  return `<div class="priority-confirm-backdrop"><section class="priority-confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="priorityConfirmTitle">
+    <h3 id="priorityConfirmTitle">Konfirmasi urutan prioritas</h3>
+    <div class="bulk-hint">Gedung tujuan: <strong>Gedung ${esc(state.requestBuilding)}</strong>. Pastikan urutan sudah benar; tarik baris untuk mengubah prioritas.</div>
+    <div class="priority-confirm-list">${rows.map((row,index)=>`<div class="priority-confirm-row" data-request-row="${row.id}">
+      <button type="button" class="request-drag-handle" draggable="true" data-drag-request-row="${row.id}" aria-label="Geser prioritas ${index+1}" title="Tarik untuk mengubah urutan">⠿</button>
+      <span class="priority-confirm-number">#${index+1}</span>
+      <span class="priority-confirm-label">${esc(row.spk)}${row.master?.style?` · ${esc(row.master.style)}`:''}</span>
+    </div>`).join('')}</div>
+    <div class="spk-form-actions">
+      <button class="btn ghost" id="backToRequestForm">Kembali</button>
+      <button class="btn amber" id="confirmRequestPriority">Ya, prioritas benar — kirim request</button>
+    </div>
+  </section></div>`;
 }
 
 function createRequestRow(spk=''){
@@ -1045,7 +1104,7 @@ function renderRequestRow(row,index){
   const status=row.status==='found'?`<span class="request-batch-status found">SPK ditemukan</span>`:row.status==='missing'?`<span class="request-batch-status missing">SPK ${esc(row.spk)} tidak ditemukan</span>`:row.status==='manual'?`<span class="request-batch-status missing">Input manual untuk ${esc(row.spk)}</span>`:row.status==='searching'?'<span class="request-batch-status">Mencari...</span>':'';
   const suggestions=row.status==='idle'&&row.suggestionState!=='idle'?`<div class="request-spk-suggestions">${row.suggestionState==='loading'?'<div class="no-match">Mencari SPK...</div>':row.suggestionState==='empty'?'<div class="no-match">Tidak ada SPK yang mendekati.</div>':row.suggestions.map((suggestion,suggestionIndex)=>`<button type="button" data-select-request-suggestion="${row.id}" data-suggestion-index="${suggestionIndex}"><strong>${esc(suggestion.spk)}</strong><small>${esc(suggestion.style)} · ${esc(suggestion.customer)}</small></button>`).join('')}</div>`:'';
   return `<div class="request-batch-row" data-request-row="${row.id}">
-    <div class="request-batch-row-head"><strong>${index+1}.</strong><div class="request-spk-field"><input type="text" class="request-batch-spk" data-row-id="${row.id}" value="${esc(row.spk)}" placeholder="SPK" autocomplete="off">${suggestions}</div>${status}<button class="del-row-btn" type="button" data-remove-request-row="${row.id}" title="Hapus SPK">Hapus</button></div>
+    <div class="request-batch-row-head"><button type="button" class="request-drag-handle" draggable="true" data-drag-request-row="${row.id}" aria-label="Geser prioritas ${index+1}" title="Tarik untuk mengubah urutan">⠿</button><strong>${index+1}.</strong><div class="request-spk-field"><input type="text" class="request-batch-spk" data-row-id="${row.id}" value="${esc(row.spk)}" placeholder="SPK" autocomplete="off">${suggestions}</div>${status}<button class="del-row-btn" type="button" data-remove-request-row="${row.id}" title="Hapus SPK">Hapus</button></div>
     ${row.status==='missing'||row.status==='manual'?`<div class="request-batch-actions"><button class="btn ghost sm" type="button" data-edit-request-spk="${row.id}">Ubah SPK</button>${row.status==='missing'?`<button class="btn ghost sm" type="button" data-manual-request-spk="${row.id}">Input Manual</button>`:''}</div>`:''}
     ${master?`<div class="spk-master-details"><div><span>STYLE</span><strong>${esc(master.style)}</strong></div><div><span>CUSTOMER</span><strong>${esc(master.customer)}</strong></div><div><span>XFD</span><strong>${fmtDate(master.xfd)}</strong></div><div><span>QTY</span><strong>${master.qty}</strong></div></div>`:''}
     ${row.manual?`<div class="spk-manual-fields"><div><label>STYLE</label><input type="text" data-row-field="style" data-row-id="${row.id}" value="${esc(row.style)}" placeholder="STYLE"></div><div><label>CUSTOMER</label><input type="text" data-row-field="customer" data-row-id="${row.id}" value="${esc(row.customer)}" placeholder="CUSTOMER"></div><div><label>XFD</label><input type="date" data-row-field="xfd" data-row-id="${row.id}" value="${esc(row.xfd)}"></div><div><label>QTY</label><input type="number" min="1" data-row-field="qty" data-row-id="${row.id}" value="${esc(row.qty)}" placeholder="QTY"></div></div>`:''}
@@ -1341,6 +1400,8 @@ function attachEvents(){
       if(d){ d.focus(); d.setSelectionRange(state.dashSearch.length, state.dashSearch.length); }
     };
   }
+  const dashboardSort=document.getElementById('dashboardSort');
+  if(dashboardSort) dashboardSort.onchange=()=>{state.dashSort=dashboardSort.value;render();};
   const componentFilter = app.querySelector('.component-filter');
   if(componentFilter){
     componentFilter.addEventListener('toggle',()=>{ state.componentFilterOpen=componentFilter.open; });
@@ -1414,9 +1475,25 @@ function attachEvents(){
     finally{ importSpkButton.disabled=false; spkImportInput.value=''; }
   };
   const dashboardAdd = document.getElementById('dashboardAddRequest');
-  if(dashboardAdd) dashboardAdd.onclick = ()=>{ state.tab='request'; state.addOpen=true; render(); };
+  if(dashboardAdd) dashboardAdd.onclick = ()=>{
+    state.tab='request'; state.addOpen=true;
+    state.requestBuilding=state.role==='PRODUKSI'?state.building:'';
+    state.requestConfirming=false;
+    render();
+  };
   const toggleAdd = document.getElementById('toggleAdd');
-  if(toggleAdd) toggleAdd.onclick = ()=>{ state.addOpen = !state.addOpen; if(state.addOpen&&!state.requestRows.length) state.requestRows=[createRequestRow()]; render(); };
+  if(toggleAdd) toggleAdd.onclick = ()=>{
+    state.addOpen = !state.addOpen;
+    if(state.addOpen){
+      if(!state.requestRows.length) state.requestRows=[createRequestRow()];
+      state.requestBuilding=state.role==='PRODUKSI'?state.building:'';
+      state.requestConfirming=false;
+    }
+    render();
+  };
+
+  const requestBuilding=document.getElementById('requestBuilding');
+  if(requestBuilding) requestBuilding.onchange=()=>{state.requestBuilding=requestBuilding.value;};
 
   const addRequestRow=document.getElementById('addRequestRow');
   if(addRequestRow) addRequestRow.onclick=()=>{
@@ -1492,6 +1569,41 @@ function attachEvents(){
   app.querySelectorAll('[data-remove-request-row]').forEach(button=>{
     button.onclick=()=>{ state.requestRows=state.requestRows.filter(row=>row.id!==Number(button.dataset.removeRequestRow)); render(); };
   });
+  app.querySelectorAll('[data-drag-request-row]').forEach(handle=>{
+    handle.ondragstart=event=>{
+      state.draggingRequestRow=Number(handle.dataset.dragRequestRow);
+      if(event.dataTransfer){
+        event.dataTransfer.effectAllowed='move';
+        event.dataTransfer.setData('text/plain',String(state.draggingRequestRow));
+      }
+      handle.closest('[data-request-row]')?.classList.add('dragging');
+    };
+    handle.ondragend=()=>{
+      if(state.draggingRequestRow!==null){
+        state.draggingRequestRow=null;
+        render();
+      }
+    };
+  });
+  app.querySelectorAll('[data-request-row]').forEach(target=>{
+    target.ondragover=event=>{
+      if(state.draggingRequestRow===null) return;
+      event.preventDefault();
+      const dragged=app.querySelector(`[data-request-row="${state.draggingRequestRow}"]`);
+      if(!dragged||dragged===target||dragged.parentElement!==target.parentElement) return;
+      const rect=target.getBoundingClientRect();
+      target.parentElement.insertBefore(dragged,event.clientY<rect.top+rect.height/2?target:target.nextSibling);
+    };
+    target.ondrop=event=>{
+      if(state.draggingRequestRow===null) return;
+      event.preventDefault();
+      const orderedIds=[...target.parentElement.querySelectorAll(':scope > [data-request-row]')].map(row=>Number(row.dataset.requestRow));
+      const rowsById=new Map(state.requestRows.map(row=>[row.id,row]));
+      state.requestRows=[...orderedIds.map(id=>rowsById.get(id)).filter(Boolean),...state.requestRows.filter(row=>!orderedIds.includes(row.id))];
+      state.draggingRequestRow=null;
+      render();
+    };
+  });
   app.querySelectorAll('[data-edit-request-spk]').forEach(button=>{
     button.onclick=()=>{
       const row=state.requestRows.find(entry=>entry.id===Number(button.dataset.editRequestSpk));
@@ -1544,29 +1656,42 @@ function attachEvents(){
   if(cancelSpkRequest) cancelSpkRequest.onclick=()=>{
     state.addOpen=false;
     state.requestRows=[];
+    state.requestBuilding='';
+    state.requestConfirming=false;
     render();
   };
-  const saveBulkRequests=document.getElementById('saveBulkRequests');
-  if(saveBulkRequests) saveBulkRequests.onclick=async ()=>{
+  const reviewRequestPriority=document.getElementById('reviewRequestPriority');
+  if(reviewRequestPriority) reviewRequestPriority.onclick=()=>{
     const submitted=state.requestRows.filter(row=>row.spk);
     if(!submitted.length){ showToast('Masukkan minimal satu SPK.'); return; }
+    if(!getRequestBuildings().includes(state.requestBuilding)){showToast('Pilih gedung tujuan request.');return;}
     const unresolved=submitted.filter(row=>row.status!=='found'&&row.status!=='manual');
     if(unresolved.length){ showToast(`Cari atau lengkapi SPK berikut: ${[...new Set(unresolved.map(row=>row.spk))].join(', ')}.`); return; }
     const noMaterials=submitted.filter(row=>!row.materials.length);
     if(noMaterials.length){ showToast(`Pilih material untuk: ${[...new Set(noMaterials.map(row=>row.spk))].join(', ')}.`); return; }
+    state.requestConfirming=true;
+    render();
+  };
+  const backToRequestForm=document.getElementById('backToRequestForm');
+  if(backToRequestForm) backToRequestForm.onclick=()=>{state.requestConfirming=false;render();};
+  const confirmRequestPriority=document.getElementById('confirmRequestPriority');
+  if(confirmRequestPriority) confirmRequestPriority.onclick=async ()=>{
+    const submitted=state.requestRows.filter(row=>row.spk);
     const items=submitted.map(row=>{
-      const item={spk:row.spk,materials:row.materials};
+      const item={spk:row.spk,materials:row.materials,building:state.requestBuilding};
       if(row.manual) Object.assign(item,{style:row.style.trim(),customer:row.customer.trim(),xfd:row.xfd,qty:Number(row.qty)});
       return item;
     });
-    saveBulkRequests.disabled=true;
+    confirmRequestPriority.disabled=true;
     try{
       state.items=await api('/items/bulk',{method:'POST',body:JSON.stringify({items})});
       state.addOpen=false;
       state.requestRows=[];
+      state.requestBuilding='';
+      state.requestConfirming=false;
       render();
       showToast(`${items.length} request berhasil disimpan.`);
-    }catch(error){ showToast(error.message); saveBulkRequests.disabled=false; }
+    }catch(error){ showToast(error.message); confirmRequestPriority.disabled=false; }
   };
 
   // Kanban card → buka di Data SPK

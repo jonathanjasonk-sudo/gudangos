@@ -39,7 +39,27 @@ async function initDb() {
   await pool.query(`ALTER TABLE items ADD COLUMN IF NOT EXISTS materials TEXT[] NOT NULL DEFAULT ARRAY['Shoe Box', 'Size Label', 'Karton Label', 'Marking']`);
   await pool.query(`ALTER TABLE items ADD COLUMN IF NOT EXISTS style TEXT NOT NULL DEFAULT ''`);
   await pool.query(`ALTER TABLE items ADD COLUMN IF NOT EXISTS building TEXT`);
+  await pool.query(`ALTER TABLE items ADD COLUMN IF NOT EXISTS priority INTEGER`);
   await pool.query(`CREATE INDEX IF NOT EXISTS items_building_idx ON items (building)`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS items_building_priority_idx ON items (building, priority)`);
+  await pool.query(`
+    WITH current_max AS (
+      SELECT building, COALESCE(MAX(priority), 0) AS max_priority
+      FROM items
+      WHERE building IS NOT NULL
+      GROUP BY building
+    ), unranked AS (
+      SELECT items.id,
+        current_max.max_priority + ROW_NUMBER() OVER (PARTITION BY items.building ORDER BY items.created_at, items.id) AS priority
+      FROM items
+      JOIN current_max ON current_max.building = items.building
+      WHERE items.priority IS NULL
+    )
+    UPDATE items
+    SET priority = unranked.priority
+    FROM unranked
+    WHERE items.id = unranked.id
+  `);
   await pool.query(`UPDATE items SET spk = upper(btrim(spk)) WHERE spk <> upper(btrim(spk))`);
   await pool.query(`
     CREATE TABLE IF NOT EXISTS spk_master (
@@ -210,7 +230,7 @@ app.use(authMiddleware);
 app.get('/api/roles', (req, res) => {
   const roles = Object.fromEntries(Object.entries(ACCOUNTS).map(([role, account])=>[
     role,
-    {label: account.label, full: account.full, uiPermissions: account.uiPermissions, buildings: role === 'PRODUKSI' ? BUILDINGS : []}
+    {label: account.label, full: account.full, uiPermissions: account.uiPermissions, buildings: BUILDINGS}
   ]));
   res.json(roles);
 });
@@ -250,6 +270,7 @@ async function getFullItems(req=null) {
     id: it.id,
     spk: it.spk,
     building: it.building || null,
+    priority: it.priority,
     style: it.master_style || it.style || '',
     customer: it.master_customer || it.customer || '',
     materials: it.materials || MATERIALS,
@@ -473,11 +494,22 @@ app.get('/api/export.xlsx', requirePerm('exportFile'), async (req, res) => {
 async function createRequest(client, role, building, item) {
   const spk = normalizeSpk(item.spk);
   const requestedMaterials = Array.isArray(item.materials) ? [...new Set(item.materials)] : [];
+  const requestBuilding = role === 'PRODUKSI' ? building : item.building;
+  if (!BUILDINGS.includes(requestBuilding)) {
+    const error = new Error('Pilih gedung request yang valid.');
+    error.status = 400;
+    throw error;
+  }
   if (!spk || !requestedMaterials.length || requestedMaterials.some(material => !MATERIALS.includes(material))) {
     const error = new Error('SPK dan minimal satu material yang valid wajib dipilih.');
     error.status = 400;
     throw error;
   }
+  await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`priority:${requestBuilding}`]);
+  const priority = Number((await client.query(
+    'SELECT COALESCE(MAX(priority), 0) + 1 AS next_priority FROM items WHERE building=$1',
+    [requestBuilding]
+  )).rows[0].next_priority);
   await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [spk]);
   let master = (await client.query('SELECT * FROM spk_master WHERE spk=$1', [spk])).rows[0];
   if (!master) {
@@ -505,9 +537,9 @@ async function createRequest(client, role, building, item) {
   }
   const id = crypto.randomUUID();
   await client.query(
-    `INSERT INTO items (id, spk, style, customer, materials, xfd, qty, created_by, building, planning_done, planning_date)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,true,CURRENT_DATE)`,
-    [id, spk, master.style, master.customer, requestedMaterials, master.xfd, master.qty, role, role==='PRODUKSI'?building:null]
+    `INSERT INTO items (id, spk, style, customer, materials, xfd, qty, created_by, building, priority, planning_done, planning_date)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,true,CURRENT_DATE)`,
+    [id, spk, master.style, master.customer, requestedMaterials, master.xfd, master.qty, role, requestBuilding, priority]
   );
   return id;
 }
